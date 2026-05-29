@@ -41,12 +41,12 @@
 
 ```
 Sensors → IoT Gateway → Kafka
-                          ├─→ Stream Load → {{PRODUCT_NAME}} (sensor_readings, device_shadow)
+                          ├─→ Stream Load → Apache Doris (sensor_readings, device_shadow)
                           └─→ Cold archive → Object Storage (Minio/S3)
 
-MySQL (ERP/CRM) → Flink CDC → {{PRODUCT_NAME}} (business data)
+MySQL (ERP/CRM) → Flink CDC → Apache Doris (business data)
 
-{{PRODUCT_NAME}} → Grafana (dashboards)
+Apache Doris → Grafana (dashboards)
        → API Server (device status point queries)
        → Flink (real-time alerts)
 ```

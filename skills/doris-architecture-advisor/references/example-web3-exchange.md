@@ -55,7 +55,7 @@ Different blockchains have different transaction fields. Use VARIANT for chain-s
 ## Architecture
 
 ```
-On-chain Nodes / APIs        Ingestion              {{PRODUCT_NAME}}                           Applications
+On-chain Nodes / APIs        Ingestion              Apache Doris                           Applications
 ┌───────────────┐                                  ┌──────────────────────┐
 │ Blockchain    │                                  │ Raw Detail           │
 │ Event Streams │── Kafka → Flink ────────────────│  tx_events (DUP)     │──→ Trade Analytics

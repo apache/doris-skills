@@ -8,7 +8,7 @@ tags: [start, self-hosted, byoc, on-prem, setup]
 
 **MySQL host + port**: the FE node address and MySQL protocol port. Default port is `9030`. Check `fe.conf` → `mysql_service_port` or ask your DBA.
 
-**HTTP port**: FE HTTP port for profile fetching and REST API. Self-hosted Apache Doris uses `8030` by default; {{CLOUD_PRODUCT_NAME}} uses `8080`. Check `fe.conf` → `http_port`. If unsure, `{{CLI}} auth add` probes 8080/8030/8040 and shows suggestions.
+**HTTP port**: FE HTTP port for profile fetching and REST API. Self-hosted Apache Doris uses `8030` by default; Apache Doris cloud mode uses `8080`. Check `fe.conf` → `http_port`. If unsure, `doriscli auth add` probes 8080/8030/8040 and shows suggestions.
 
 **User + password**: default root user is `root` with empty password on fresh installs. Production clusters should have a password set via `SET PASSWORD`.
 
@@ -23,14 +23,14 @@ tags: [start, self-hosted, byoc, on-prem, setup]
 3. Register BEs with FE: `ALTER SYSTEM ADD BACKEND "<be_host>:9050";`
 4. Create database and tables
 
-### Connect with VeloCLI (Preferred)
+### Connect with the doriscli management CLI (optional)
 ```bash
-{{CLI}} auth add local --host <fe_host> --port 9030 --http-port 8030 --user root --password "$DORIS_PASSWORD"
-{{CLI}} use local
-{{CLI}} auth status --format json
+doriscli auth add local --host <fe_host> --port 9030 --http-port 8030 --user root --password "$DORIS_PASSWORD"
+doriscli use local
+doriscli auth status --format json
 ```
 
-### Connect via MySQL Client
+### Connect via MySQL client (always available)
 ```bash
 mysql -h <fe_host> -P 9030 -u root -p"$DORIS_PASSWORD"
 ```

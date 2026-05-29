@@ -8,16 +8,16 @@ Size the cluster BEFORE producing DDL. Match the user's workload characteristics
 
 - "32 vCPU" means 32 vCPU total for the entire cluster
 - "1 TB cache" means 1 TB total cache across all nodes
-- {{CLOUD_PRODUCT_NAME}} manages node count automatically: ≤16 vCPU = 1 node, above 16 = multiples of 16 (e.g., 32 vCPU = 2 nodes of 16 vCPU each)
+- In cloud / storage-compute deployments, node count is typically managed for you, mapping vCPU to nodes: ≤16 vCPU = 1 node, above 16 = multiples of 16 (e.g., 32 vCPU = 2 nodes of 16 vCPU each)
 - **Do not break down into per-node specs in the output.** Just state the total vCPU and cache.
 
 ## Important Notes
 
-1. **Purpose:** Quick estimation for sales/marketing to scope opportunities. ~75% accuracy — detailed sizing requires confirmation with a {{PRODUCT_NAME}} Solutions Architect.
+1. **Purpose:** Quick first-pass estimation to scope a deployment. ~75% accuracy — detailed sizing requires validation against the actual workload (data volume, query concurrency, latency targets).
 2. **Cache:** Recommend caching ≥50% of hot data to maintain ≥90% cache hit rate.
 3. **Replicas:** Cloud mode uses single replica for both object storage and cache.
 
-Source: {{PRODUCT_NAME}} internal sizing guide.
+Source: Apache Doris internal sizing guide.
 
 ---
 
@@ -67,7 +67,7 @@ Log ingestion, full-text search, time-bounded queries.
 
 ## Real-time Data Warehouse (ETL/ELT)
 
-Incremental data processing and transformation within {{PRODUCT_NAME}}.
+Incremental data processing and transformation within Apache Doris.
 
 | Total vCPU | Total Cache | Daily ETL jobs | 80% ETL time | 80% ETL scan |
 |------------|-------------|---------------|-------------|-------------|
@@ -78,7 +78,7 @@ Incremental data processing and transformation within {{PRODUCT_NAME}}.
 
 ## Point Query Service
 
-Key-value point lookups via API. **Note:** High QPS point query requires FE resource upgrades — coordinate with {{PRODUCT_NAME}} for FE sizing.
+Key-value point lookups via API. **Note:** High QPS point query requires FE resource upgrades — coordinate with Apache Doris for FE sizing.
 
 | Total vCPU | Total Cache | Write MB/s | Write rows/s | Hot data | QPS | Latency | 80% query scan |
 |------------|-------------|-----------|-------------|----------|-----|---------|----------------|
@@ -129,4 +129,4 @@ Add 20-30% overhead for metadata, compaction temp space, and safety margin.
 | Medium (10-50 BE) | 1 Leader + 2 Follower | 32 GB | 16 cores |
 | Large (50+ BE) | 1 Leader + 4 Follower | 64 GB | 32 cores |
 
-Point query workloads with >50K QPS require FE upgrades — contact {{PRODUCT_NAME}} support.
+Point query workloads with >50K QPS require FE upgrades — contact Apache Doris support.

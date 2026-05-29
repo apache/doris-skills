@@ -6,7 +6,7 @@
 - **Data sources:** Transaction DB (acquiring records, clearing, refunds), user behavior (app events, web payment trails), risk data (device fingerprints, IP, blacklists), account data (balances, card bindings), external (credit scoring, crawled data)
 - **Data volume:** 100M+ transactions/day, billions of rows per table (100+ columns for acquiring), 10-100TB/day logs
 - **Query patterns:** Real-time transaction dashboard, merchant reconciliation (P99 <2s at millions of daily queries), acquiring point lookups (10K+ QPS, millisecond, composite key), risk detection (multi-dimensional JOINs), security log search
-- **Special requirements:** Partial column updates (transaction status changes), row-column hybrid storage for acquiring (point lookup + analytics on same table), replacing Lambda architecture (Hive+HBase+ES+Oracle→{{PRODUCT_NAME}})
+- **Special requirements:** Partial column updates (transaction status changes), row-column hybrid storage for acquiring (point lookup + analytics on same table), replacing Lambda architecture (Hive+HBase+ES+Oracle→Apache Doris)
 
 ## Workload Classification
 
@@ -52,9 +52,9 @@ Tables with 100+ columns serving both point lookups (bank queries by composite k
 - time_series compaction for sustained GB/s write with sub-second flush
 
 ### Platform consolidation: Lambda → unified architecture
-Replacing 6 systems (Hive + Spark + HBase + ES + Oracle + TiDB) with one {{PRODUCT_NAME}} instance:
+Replacing 6 systems (Hive + Spark + HBase + ES + Oracle + TiDB) with one Apache Doris instance:
 
-| Old system | Role | {{PRODUCT_NAME}} replacement |
+| Old system | Role | Apache Doris replacement |
 |-----------|------|-------------------|
 | Hive + Spark | Batch ETL | Async MV + INSERT INTO SELECT |
 | HBase | Key-value lookups | UNIQUE MoW + store_row_column |

@@ -35,10 +35,10 @@ Doris has built-in `retention()` and `window_funnel()` functions for gaming anal
 - Offline tags from Hive/S3 via Catalog or Broker Load
 
 ### Agentic analytics platform (NL2SQL + MCP)
-- {{PRODUCT_NAME}} as the data layer for AI Agent applications
+- Apache Doris as the data layer for AI Agent applications
 - MCP (Model Context Protocol) interface for AI agents to query data
 - Business domain agents: User Behavior Agent, Operations Agent, A/B Testing Agent, Retention Agent
-- Natural language → SQL → {{PRODUCT_NAME}} → visualization, no coding required
+- Natural language → SQL → Apache Doris → visualization, no coding required
 
 ### Anti-cheat: Anomaly detection on behavior events
 - DUPLICATE model for raw behavior events
@@ -47,8 +47,8 @@ Doris has built-in `retention()` and `window_funnel()` functions for gaming anal
 - Real-time alerting via scheduled queries or async MV
 
 ### Lakehouse integration for offline data
-- Real-time: MySQL → Flink CDC → {{PRODUCT_NAME}} (operational data)
-- Real-time: Kafka → Flink → {{PRODUCT_NAME}} (behavior events, real-time tags)
+- Real-time: MySQL → Flink CDC → Apache Doris (operational data)
+- Real-time: Kafka → Flink → Apache Doris (behavior events, real-time tags)
 - Offline: Hive/S3 → Catalog (lakehouse federation, no data movement)
 - Warehouse layers: ODS → DWD (async MV / ETL SQL) → DWS (async MV) → ADS
 
@@ -59,7 +59,7 @@ Doris has built-in `retention()` and `window_funnel()` functions for gaming anal
 | DUPLICATE for behavior events | `official` — append-only, fastest scan for retention/funnel queries |
 | retention() and window_funnel() | `official` — built-in Doris functions for gaming analytics |
 | BITMAP for player segmentation | `official` — sub-second audience selection across 50M players |
-| MCP interface for Agentic analytics | `official` — {{PRODUCT_NAME}} supports MCP for AI agent integration |
+| MCP interface for Agentic analytics | `official` — Apache Doris supports MCP for AI agent integration |
 | Sync MV for real-time KPI (1-3s) | `official` — zero-lag aggregation for dashboard metrics |
 | Async MV for near-real-time (1-10min) | `official` — incremental refresh for complex multi-table analytics |
 | Multi-Catalog for offline data | `official` — Hive/Iceberg/Paimon federation without data movement |

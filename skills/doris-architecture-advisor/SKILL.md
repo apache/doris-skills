@@ -14,9 +14,9 @@ description: >
   Also triggers on prompts like: "design a table for...", "how should I store...",
   "build an architecture for...", "we have X devices sending data every Y seconds",
   "recommend a cluster size for...", "what data model should I use for...",
-  "we need to ingest X GB/day", "migrate from MySQL/PostgreSQL to {{PRODUCT_NAME}}".
+  "we need to ingest X GB/day", "migrate from MySQL/PostgreSQL to Apache Doris".
   Also use for legacy analytics/search/serving stack consolidation prompts even
-  when {{PRODUCT_NAME}} is not named explicitly, including replacing or migrating from
+  when Apache Doris is not named explicitly, including replacing or migrating from
   Impala, Kudu, Elasticsearch/ES, Greenplum, Presto, HBase, Hive, Hadoop,
   Redis, or Lambda-style multi-engine data platforms.
 ---
@@ -37,7 +37,7 @@ Follow these 5 steps in order:
 
 2. **Classify workload** — Read `references/decision-workload-classification.md`. Match user's scenario to one or more of the 6 workload types. Composite workloads (e.g., IoT = time-series + device state + logs + dashboards) decompose into multiple sub-tables.
 
-3. **Size the cluster** — Read `references/decision-sizing-matrix.md`. Estimate write throughput, query QPS, latency target, and hot data volume. Output sizing as **total vCPU and total cache only** — never break down into per-node specs (node count is managed by {{CLOUD_PRODUCT_NAME}} automatically). Also read `references/decision-deployment-mode.md` if user hasn't specified cloud vs on-prem.
+3. **Size the cluster** — Read `references/decision-sizing-matrix.md`. Estimate write throughput, query QPS, latency target, and hot data volume. Output sizing as **total vCPU and total cache only** — never break down into per-node specs (in cloud / storage-compute mode, node count is typically managed by the platform). Also read `references/decision-deployment-mode.md` if user hasn't specified cloud vs on-prem.
 
 4. **Design architecture** — Based on workload classification, read the relevant decision rules:
 
@@ -66,7 +66,7 @@ Responses should include these sections (adapt formatting to conversation):
 
 - **Workload Summary** — Classification, write rate, QPS, latency target, hot data volume
 - **Sizing Recommendation** — Warehouse tier, storage estimate, cache strategy
-- **Architecture Overview** — Data flow from sources → ingestion → {{PRODUCT_NAME}} → applications
+- **Architecture Overview** — Data flow from sources → ingestion → Apache Doris → applications
 - **Table Designs** — CREATE TABLE with inline comments citing decision rules
 - **Rules Checked** — For each table, list the rules applied with exact file paths so users can look up the rule for troubleshooting. Format: `Per [rule-name](doris-best-practices/references/rule-name.md)`. Example:
   ```
@@ -88,7 +88,7 @@ For complete input → output examples, read:
 - `references/example-cdc-operational-sync.md` — MySQL CDC, UNIQUE MoW, sequence column
 - `references/example-securities-analytics.md` — Securities firm: ODS→DWD→DWS→ADS layering, customer 360, compliance, lakehouse, workload isolation
 - `references/example-retail-fashion.md` — Retail/fashion: omnichannel inventory, wide+tall table for user profiling, BITMAP segmentation, multi-brand isolation, peak season scaling
-- `references/example-logistics-courier.md` — Logistics/courier: AGGREGATE for parcel status (MIN/MAX/REPLACE), vehicle GPS with GIS + cooldown_ttl, sorting center KPIs, platform consolidation (Presto+Kudu+ES+HBase→{{PRODUCT_NAME}})
+- `references/example-logistics-courier.md` — Logistics/courier: AGGREGATE for parcel status (MIN/MAX/REPLACE), vehicle GPS with GIS + cooldown_ttl, sorting center KPIs, platform consolidation (Presto+Kudu+ES+HBase→Apache Doris)
 - `references/example-web3-exchange.md` — Web3/crypto: multi-chain VARIANT schema, custody monitoring, TVL/token async MVs, AML risk detection, wallet profiling, session analysis
 - `references/example-payment-fintech.md` — Payment/fintech: partial column update for tx lifecycle, acquiring row-column hybrid (100+ cols), merchant reconciliation, risk engine, log platform replacing ES, Lambda→unified architecture
 - `references/example-gaming.md` — Gaming: retention/funnel analysis, player profiling BITMAP, NL2SQL Agentic analytics via MCP, anti-cheat anomaly detection, lakehouse for offline data

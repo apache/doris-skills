@@ -40,8 +40,8 @@ The core challenge: the bidding engine needs millisecond access to user profiles
 - **DWS (summary):** Sync MV for real-time CTR/CVR computation. Async MV for campaign/channel/creative-level rollups.
 - **ADS (application):** Pre-aggregated KPIs by advertiser × campaign × day. Sub-second dashboard queries for 10,000+ concurrent advertisers.
 
-### Platform consolidation: Redis + MySQL + HBase + Hive → {{PRODUCT_NAME}}
-| Old system | Role | {{PRODUCT_NAME}} replacement |
+### Platform consolidation: Redis + MySQL + HBase + Hive → Apache Doris
+| Old system | Role | Apache Doris replacement |
 |-----------|------|-------------------|
 | Redis | RTB user profile serving | UNIQUE MoW + store_row_column (30K QPS, <10ms) |
 | MySQL | Campaign management | Flink CDC → UNIQUE MoW |
@@ -51,7 +51,7 @@ The core challenge: the bidding engine needs millisecond access to user profiles
 Result: TCO reduction 30-50%, unified data layer, one SQL interface.
 
 ### Cross-border / multi-region
-- {{CLOUD_PRODUCT_NAME}} supports AWS, GCP, Azure deployment in any region
+- Apache Doris cloud mode supports AWS, GCP, Azure deployment in any region
 - SAAS and BYOC models for different compliance requirements (GDPR, CCPA)
 - Multi-currency conversion handled in DWS layer via dimension table JOINs
 - Each region can have its own compute group with workload isolation
@@ -66,5 +66,5 @@ Result: TCO reduction 30-50%, unified data layer, one SQL interface.
 | VARIANT for cross-platform JSON | `official` — different ad platforms have different request schemas |
 | Vector index for creative similarity | `official` — HNSW for ANN search on creative embeddings |
 | Workload Groups for advertiser isolation | `official` — 10K concurrent advertisers, prevent cross-impact |
-| Dual-path (serving + analytics) | `derived` — same {{PRODUCT_NAME}} instance serves both RTB and dashboard workloads |
+| Dual-path (serving + analytics) | `derived` — same Apache Doris instance serves both RTB and dashboard workloads |
 | Multi-Catalog for offline attribution | `official` — Hive/S3 data queried without movement |

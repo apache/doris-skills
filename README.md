@@ -1,8 +1,22 @@
-# doris-skills
+# Agent Skills for Apache Doris
 
-Brand-neutral Apache Doris agent skills for use with Claude Code. This repository contains the **kernel knowledge** that is identical across VeloDB and SelectDB (both built on Apache Doris): table design, sizing, query investigation, and architecture decisions.
+Apache Doris agent skills for use with Claude Code. This repository contains the
+**kernel knowledge** for any Apache Doris deployment: table design, sizing, query
+investigation, and architecture decisions.
 
-Cloud-platform operations (CLI auth, cluster lifecycle, billing, networking) are **brand-specific** and live in separate brand repositories that consume this shared content via a render step.
+The skills pair with **`doriscli`**, the Apache Doris CLI (companion `doris-cli`
+repository). doriscli is the "hands" — it runs SQL, fetches and parses query profiles,
+and analyzes tablet distribution, all as structured JSON; these skills are the "brain" —
+the decision logic that reads that JSON and recommends table designs, sizing, and fixes.
+doriscli is optional: when it is not installed the skills fall back to plain
+MySQL-protocol SQL plus the FE HTTP API, so they work with or without it (see
+`skills/doris-best-practices/references/cli-investigation.md`).
+
+The exact doriscli commands and JSON fields the skills depend on are listed in
+[CLI-CONTRACT.md](CLI-CONTRACT.md) — keep that file and doriscli in sync.
+
+Cluster-lifecycle, billing, and networking operations are managed-service specific and
+intentionally out of scope here; use your platform's cluster-management console for those.
 
 ## Skills
 
@@ -11,32 +25,35 @@ Cloud-platform operations (CLI auth, cluster lifecycle, billing, networking) are
 | `doris-best-practices` | Apache Doris table design, sizing, and runtime query investigation (37 rules, 7 use-case templates, 4 sizing guides) |
 | `doris-architecture-advisor` | Workload-aware architecture design (8 decision rules, 10 worked industry examples) |
 
-## How brand repositories consume this
+## How to use
 
-Brand repositories (e.g. `velodb-cloud-skills`, `selectdb-cloud-skills`) include this repo as a git submodule and run `scripts/render.sh` at install time:
+Copy the skills into your Claude Code skills directory:
 
 ```bash
-# In a brand repo:
-./doris-skills/scripts/render.sh ./brand.values.yaml ~/.claude/skills/
+cp -r skills/* ~/.claude/skills/
 ```
 
-`render.sh` substitutes the 5 placeholder tokens (see [PLACEHOLDERS.md](PLACEHOLDERS.md)) with brand-specific values and writes rendered skills to the target directory.
+For the structured-diagnosis path (query profiles, tablet health), also install
+doriscli from the companion `doris-cli` repository. Without it, the skills use the
+SQL + HTTP fallback automatically.
 
 ## Authoring rules
 
-- **Never** write brand-specific bare strings (CLI names, hostnames, console URLs, env-var prefixes). Use the placeholders in [PLACEHOLDERS.md](PLACEHOLDERS.md), or neutral wording ("Apache Doris" / "Cloud mode").
-- Cloud-mode behavior (storage-compute separation, replication_num=1, file cache) is **Doris kernel architecture** — describe it neutrally without naming a specific Cloud product, unless the statement is specifically about brand-managed behavior (e.g., automatic node-count management).
-- Run `scripts/lint-no-brand.sh` before committing.
+- Write `doriscli` and `Apache Doris` directly. **Never** introduce a downstream
+  distribution's brand strings — CLI names, console URLs, env-var prefixes, hostnames.
+- Cloud-mode behavior (storage-compute separation, `replication_num=1`, file cache) is
+  **Doris kernel architecture** — describe it neutrally as "cloud mode" / "storage-compute".
+  Managed-service behavior (suspend/resume, automatic node-count management, billing) is
+  out of scope; point at the user's cluster-management console rather than naming a product.
+- If you rely on a new doriscli command or output field, add it to
+  [CLI-CONTRACT.md](CLI-CONTRACT.md) so the two repositories stay in sync.
 
 ## Layout
 
 ```
 doris-skills/
 ├── README.md
-├── PLACEHOLDERS.md          # Placeholder catalog + version contract
-├── scripts/
-│   ├── render.sh            # Substitutes placeholders for a brand
-│   └── lint-no-brand.sh     # Fails CI if bare brand strings appear
+├── CLI-CONTRACT.md            # doriscli commands + JSON fields the skills depend on
 └── skills/
     ├── doris-best-practices/
     └── doris-architecture-advisor/

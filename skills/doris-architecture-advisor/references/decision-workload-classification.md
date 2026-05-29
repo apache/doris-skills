@@ -33,7 +33,7 @@ High-volume log ingestion with full-text search and time-bounded queries.
 - **Typical model:** DUPLICATE + inverted index + ZSTD compression
 
 ### 5. Real-time Data Warehouse / ETL
-Incremental data processing and transformation within {{PRODUCT_NAME}}.
+Incremental data processing and transformation within Apache Doris.
 - **Signals:** ETL, ELT, data pipeline, dbt, materialized view, incremental processing, ODS/DWD/DWS/ADS layers
 - **Data shape:** Layered warehouse model (ODS → DWD → DWS → ADS)
 - **Query pattern:** Scheduled transformations, INSERT INTO SELECT, async MV refresh
@@ -76,7 +76,7 @@ When different teams share the same cluster:
 
 ### Lakehouse Federation (Hot/Cold Tiering)
 When historical data lives in a data lake (Hive/Iceberg/Hudi):
-- Hot data (recent 1 year): stored in {{PRODUCT_NAME}} for sub-second queries
+- Hot data (recent 1 year): stored in Apache Doris for sub-second queries
 - Cold data (3+ years): stays in data lake, queried via Multi-Catalog
 - Accelerate repeated lake queries with async MV
 - `file_cache_ttl_seconds` controls per-table cache lifetime

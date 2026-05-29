@@ -13,23 +13,23 @@ description: >
   stacks such as Impala, Kudu, Elasticsearch/ES, Greenplum, Presto, HBase,
   Hive, Hadoop, Redis, or Lambda-style multi-engine data platforms, even when
   Apache Doris is not named explicitly.
-  Also use when user provides a {{PRODUCT_NAME}} connection string or asks to get started.
+  Also use when user provides an Apache Doris connection string or asks to get started.
   Also triggers on slow query investigation, query profiling, runtime performance
   diagnosis, tablet skew analysis, and table health checks — any scenario where
   runtime evidence (profile output, tablet distribution) informs optimization.
-  For Cloud operations (auth, cluster lifecycle, billing, networking), defer to
-  the {{CLOUD_OPS_SKILL}} skill.
+  Cluster lifecycle, billing, and networking are managed-service operations, out of
+  scope here — use your platform's cluster-management console for those.
 license: Apache-2.0
 metadata:
-  author: Apache Doris Community
-  version: "3.1.0"
+  author: tomz-alt
+  version: "0.1.0"
 ---
 
 # Apache Doris Best Practices
 
 > Problem-first table design intelligence for Apache Doris.
 > 37 rules, 7 use case templates, 4 sizing guides.
-> All details in `references/` directory and compiled `AGENTS.md`.
+> All details in `references/` directory.
 
 ---
 
@@ -209,27 +209,29 @@ PROPERTIES (
 
 ## 3 ▸ Connection & CLI
 
-### Detect CLI
+Apache Doris speaks the MySQL protocol, so the **always-available** path is any MySQL-compatible client (`mysql`) plus SQL and the FE HTTP REST API. Some distributions also ship an **optional management CLI** (referred to here as `doriscli`) that adds ergonomic profiling and diagnostics commands — use it when your distribution provides one, otherwise use the native path.
 
-Before running any queries, detect the CLI binary:
+### Detect the optional CLI
 
-1. Check `{{CLI_PATH_ENV}}` env var — if set, use that binary path
-2. `command -v {{CLI}}` — use from PATH
+Before running any queries, detect whether the CLI binary is available:
+
+1. Check `DORIS_CLI_PATH` env var — if set, use that binary path
+2. `command -v doriscli` — use from PATH
 3. If none available: fall back to `mysql` client (see `references/start-*.md`)
 
-### When {{CLI}} is available, prefer it for all operations:
+### When doriscli is available, prefer it for all operations:
 
-| Task | {{CLI}} Command |
+| Task | doriscli Command |
 |------|-----------------|
-| Run SQL | `{{CLI}} sql "SELECT ..."` |
-| DDL inspection | `{{CLI}} sql "SHOW CREATE TABLE db.t"` |
-| Table/tablet health | `{{CLI}} tablet db.t` (overview) or `{{CLI}} tablet db.t --detail` |
-| Profile a slow query | `{{CLI}} sql "SELECT ..." --profile` → captures query_id |
-| Get query profile | `{{CLI}} profile get <qid>` or `--full` for complete diagnosis |
-| Compare fast vs slow | `{{CLI}} profile diff <slow_qid> <fast_qid>` |
-| Performance trend | `{{CLI}} profile history <sql_pattern> --days 7` |
-| Test connection | `{{CLI}} auth status` |
-| Switch environment | `{{CLI}} use <name>` |
+| Run SQL | `doriscli sql "SELECT ..."` |
+| DDL inspection | `doriscli sql "SHOW CREATE TABLE db.t"` |
+| Table/tablet health | `doriscli tablet db.t` (overview) or `doriscli tablet db.t --detail` |
+| Profile a slow query | `doriscli sql "SELECT ..." --profile` → captures query_id |
+| Get query profile | `doriscli profile get <qid>` or `--full` for complete diagnosis |
+| Compare fast vs slow | `doriscli profile diff <slow_qid> <fast_qid>` |
+| Performance trend | `doriscli profile history <sql_pattern> --days 7` |
+| Test connection | `doriscli auth status` |
+| Switch environment | `doriscli use <name>` |
 
 ### Runtime Query Investigation
 
@@ -238,15 +240,15 @@ For slow queries or runtime performance issues, read `references/cli-investigati
 - **Evidence first is mandatory**: collect or attempt profile, tablet, DDL, stats, EXPLAIN, history, active-query, or connection evidence before forming hypotheses. If evidence cannot be collected locally, state that and provide the exact commands to run
 - **Prefer existing profiles**: use `profile get <query_id>`, `profile list`, or `profile history` before re-executing SQL
 - **Proactive discovery**: for vague slow-query reports, start with `auth status`, `profile list --active`, and recent `profile list` before asking the user for more context
-- **Safety gate**: before running user SQL with `--profile`, check whether it is safe (no DDL, no mutation, no unbounded scan). For unknown, peak-hour, or expensive SQL, run `{{CLI}} sql "EXPLAIN <query>" --format json` first and ask confirmation or request an existing query_id
+- **Safety gate**: before running user SQL with `--profile`, check whether it is safe (no DDL, no mutation, no unbounded scan). For unknown, peak-hour, or expensive SQL, run `doriscli sql "EXPLAIN <query>" --format json` first and ask confirmation or request an existing query_id
 - **Hypotheses, not verdicts**: diagnostic mappings are heuristics. Present evidence, likely cause, what to check next, and when the conclusion may be wrong
-- If {{CLI}} is unavailable, fall back to SQL commands listed in the reference
+- If doriscli is unavailable, fall back to SQL commands listed in the reference
 - Always use `--format json` for structured agent-readable output
 
 ### Quick-start guides
 
 - `references/start-self-hosted.md` — Self-hosted / BYOC / on-prem
-- For {{CLOUD_PRODUCT_NAME}} setup, see the `{{CLOUD_OPS_SKILL}}` skill
+- Cloud mode (storage-compute) connection differs only in the HTTP port (8080 vs 8030) — same guide applies
 
 ---
 

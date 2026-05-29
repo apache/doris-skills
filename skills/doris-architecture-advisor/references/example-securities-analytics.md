@@ -31,7 +31,7 @@
 ## Architecture
 
 ```
-Data Sources                    Data Collection          Real-time DW ({{PRODUCT_NAME}})        Applications
+Data Sources                    Data Collection          Real-time DW (Apache Doris)        Applications
 ┌──────────┐                                            ┌─────────────────────┐
 │ Trading  │──── Flink CDC ──────────────────────────────│ ADS (Aggregate)     │──→ KPI Dashboards
 │ (Oracle) │                                            │ ads_revenue_daily   │──→ Management Cockpit
@@ -259,4 +259,4 @@ SET PROPERTY FOR 'risk_team' 'default_workload_group' = 'wg_risk';
 | Inverted index on audit logs | `official` — compliance pattern search on error_code + message |
 | ZSTD on events and logs | `derived` — high redundancy in behavioral and audit data |
 | 3-year partition retention for compliance | `field` — regulatory requirement; adjust per jurisdiction |
-| 64 vCPU / 3 TB cache | `field` — ~75% accuracy; confirm with {{PRODUCT_NAME}} SA |
+| 64 vCPU / 3 TB cache | `field` — ~75% accuracy; confirm with Apache Doris SA |

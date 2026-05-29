@@ -5,16 +5,18 @@ tags: [cli, investigation, diagnostics, profiling, slow-query]
 
 ## CLI-Based Query Investigation
 
-Evidence-first runtime diagnosis using {{CLI}}. Collect profile, tablet, DDL, stats, EXPLAIN, or connection evidence before forming hypotheses. Do not jump to schema fixes.
+Evidence-first runtime diagnosis using doriscli. Collect profile, tablet, DDL, stats, EXPLAIN, or connection evidence before forming hypotheses. Do not jump to schema fixes.
+
+> `doriscli` is the **Apache Doris CLI** — install it for ergonomic profiling and diagnostics. If it is not installed, use the **Native SQL + HTTP path** at the end of this document — it is always available and the diagnostic reasoning is identical.
 
 ---
 
 ### Binary Policy
 
-- Primary command: `{{CLI}}`
+- Primary command: `doriscli`
 - Detection order:
-  1. `{{CLI_PATH_ENV}}` environment variable → use that binary path
-  2. `command -v {{CLI}}` → use from PATH
+  1. `DORIS_CLI_PATH` environment variable → use that binary path
+  2. `command -v doriscli` → use from PATH
   3. If none available: use fallback SQL (see end of this document)
 
 ### Safety Policy
@@ -27,8 +29,8 @@ Evidence-first runtime diagnosis using {{CLI}}. Collect profile, tablet, DDL, st
 ### Evidence-First Hard Gate
 
 - Do not present root causes, DDL rewrites, materialized views, index changes, bucket changes, or tuning recommendations until at least one evidence source has been collected or attempted
-- Valid evidence sources: `profile get`, `profile diff`, `profile history`, `profile list --active`, `tablet`, `{{CLI}} sql "EXPLAIN ..."`, fallback SQL output, `auth status`, or an explicit user-provided profile/tablet/EXPLAIN snippet
-- If a command cannot be executed locally because `{{CLI}}` or credentials are unavailable, say that evidence could not be collected here, then provide the exact commands for the user to run. Do not stop at "install {{CLI}}"
+- Valid evidence sources: `profile get`, `profile diff`, `profile history`, `profile list --active`, `tablet`, `doriscli sql "EXPLAIN ..."`, fallback SQL output, `auth status`, or an explicit user-provided profile/tablet/EXPLAIN snippet
+- If a command cannot be executed locally because `doriscli` or credentials are unavailable, say that evidence could not be collected here, then provide the exact commands for the user to run. Do not stop at "install doriscli"
 - If no evidence is available yet, the correct response is a short investigation plan plus the first read-only command to run, not a diagnosis
 - After collecting evidence, report findings as hypotheses with confidence and caveats, not as guaranteed root causes
 
@@ -36,7 +38,7 @@ Evidence-first runtime diagnosis using {{CLI}}. Collect profile, tablet, DDL, st
 
 ### Connection-First Rule
 
-If the user reports that `{{CLI}} sql`, `{{CLI}} profile get`, or any CLI command **fails, times out, or returns an error**, treat it as a connection-layer problem first, not a query performance problem. The first command must be `{{CLI}} auth status --format json`. Do not suggest query timeout changes, session variables, DDL, or performance tuning until connectivity (mysql_status, http_status) is confirmed working. If the cluster is Cloud-managed, also check `{{CLI}} cloud cluster get --format json` (cluster may be Suspended).
+If the user reports that `doriscli sql`, `doriscli profile get`, or any CLI command **fails, times out, or returns an error**, treat it as a connection-layer problem first, not a query performance problem. The first command must be `doriscli auth status --format json`. Do not suggest query timeout changes, session variables, DDL, or performance tuning until connectivity (mysql_status, http_status) is confirmed working. If this is a storage-compute (cloud mode) deployment, also confirm compute is not suspended or scaled to zero — `doriscli auth status` reports `backends`; an empty or all-not-`alive` list means compute is unavailable.
 
 ---
 
@@ -57,50 +59,50 @@ Use the most specific available path:
 
 #### When user provides a query_id
 
-1. `{{CLI}} profile get <query_id> --format json`
+1. `doriscli profile get <query_id> --format json`
 2. If profile fetch fails, still treat the failed fetch as evidence. Check whether the failure looks like eviction, wrong HTTP port, or connectivity; see Failure Handling below
-3. For each table in `scanned_tables`, run `{{CLI}} tablet <db.table> --detail --format json`
+3. For each table in `scanned_tables`, run `doriscli tablet <db.table> --detail --format json`
 4. If `tablet` shows stale stats (zero rows on a known-populated table), note this as a caveat — metadata can lag on new or tiny tables
 5. Gather evidence, form hypotheses, recommend next checks
 
 #### When user provides SQL but no query_id
 
-1. Check recent runs first: `{{CLI}} profile list --format json` — scan for matching SQL text
+1. Check recent runs first: `doriscli profile list --format json` — scan for matching SQL text
 2. If a recent run exists, use that profile instead of re-executing
-3. If no recent run exists, run `{{CLI}} sql "EXPLAIN <query>" --format json`
+3. If no recent run exists, run `doriscli sql "EXPLAIN <query>" --format json`
 4. If SQL looks expensive, unfamiliar, during peak hours, or could scan/join large tables, show the EXPLAIN evidence and ask before profiled execution
-5. Only after the safety gate passes: `{{CLI}} sql "<query>" --profile --format json`
+5. Only after the safety gate passes: `doriscli sql "<query>" --profile --format json`
 6. Extract `query_id` from response → continue with profile workflow above
 
 #### When user gives only a vague symptom
 
-1. `{{CLI}} auth status --format json` — verify MySQL and HTTP connectivity before query diagnosis
-2. `{{CLI}} profile list --active --format json` — look for currently slow/running queries
-3. `{{CLI}} profile list --limit 20 --format json` — look for recent slow profiles
-4. If the user gives a workload keyword but not exact SQL, optionally use `{{CLI}} profile history "<keyword>" --days 7 --format json`
+1. `doriscli auth status --format json` — verify MySQL and HTTP connectivity before query diagnosis
+2. `doriscli profile list --active --format json` — look for currently slow/running queries
+3. `doriscli profile list --limit 20 --format json` — look for recent slow profiles
+4. If the user gives a workload keyword but not exact SQL, optionally use `doriscli profile history "<keyword>" --days 7 --format json`
 5. If nothing relevant appears, ask for query_id, SQL text, dashboard/report name, time window, and environment. Do not invent a query or DDL
 
 #### When investigating a running query
 
-1. `{{CLI}} profile list --active --format json` — find active queries
+1. `doriscli profile list --active --format json` — find active queries
 2. Wait for completion or ask user if they want to cancel/let it finish
 3. Then fetch the profile with `profile get`
 
 #### Regression comparison
 
-- `{{CLI}} profile diff <slow_qid> <fast_qid> --format json` — operator-by-operator delta
+- `doriscli profile diff <slow_qid> <fast_qid> --format json` — operator-by-operator delta
 - Focus on operators where time or rows changed significantly
 
 #### Trend analysis
 
-- `{{CLI}} profile history "<sql_pattern>" --days 7 --format json` — p50/p99 over time
+- `doriscli profile history "<sql_pattern>" --days 7 --format json` — p50/p99 over time
 - Look for gradual growth (data volume) vs sudden jump (schema change, partition change, cluster change)
 
 #### When profile is unavailable or was not enabled
 
-1. Try `{{CLI}} profile list --limit 20 --format json` for recent profiles
-2. Try `{{CLI}} profile history "<sql_pattern>" --days 7 --format json` if a query pattern is known
-3. Use `{{CLI}} sql "EXPLAIN <query>" --format json` and `{{CLI}} tablet <db.table> --detail --format json` as fallback evidence
+1. Try `doriscli profile list --limit 20 --format json` for recent profiles
+2. Try `doriscli profile history "<sql_pattern>" --days 7 --format json` if a query pattern is known
+3. Use `doriscli sql "EXPLAIN <query>" --format json` and `doriscli tablet <db.table> --detail --format json` as fallback evidence
 4. Ask to rerun with `--profile` only after the safety gate passes
 
 ---
@@ -149,7 +151,7 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 
 - **Evidence**: scan operator `selectivity` >> 100, or `total_scan_rows` vastly exceeds output rows
 - **Likely**: sort key does not match the query's primary filter columns — Doris scans more data than necessary
-- **Check next**: `{{CLI}} tablet <table>` → compare `sort_key` columns with the query's WHERE clause. Also check if an inverted index or BloomFilter could help
+- **Check next**: `doriscli tablet <table>` → compare `sort_key` columns with the query's WHERE clause. Also check if an inverted index or BloomFilter could help
 - **Possible fix**: move the high-selectivity filter column to sort key position 1 → `schema-keys-selectivity-first`. Or add a secondary index
 - **Not always this**: high selectivity can also result from stale column stats causing bad partition pruning, or from querying across many partitions where the filter is only selective within each partition
 
@@ -165,7 +167,7 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 
 - **Evidence**: `shuffle_bytes` is large on a JOIN operator, or `join_type` = shuffle for a table that could use broadcast or colocation
 - **Likely**: tables are not colocated and the smaller side exceeds the broadcast threshold
-- **Check next**: check both tables' bucket keys and counts with `{{CLI}} tablet`. Check dimension table size (< 1GB usually broadcasts automatically)
+- **Check next**: check both tables' bucket keys and counts with `doriscli tablet`. Check dimension table size (< 1GB usually broadcasts automatically)
 - **Possible fix**: for small dimensions (< 1GB), ensure broadcast join + runtime filter are working. For large repeated joins, align bucket keys and counts for colocation → `usecase-star-schema-join`
 - **Not always this**: shuffle is sometimes correct for large-large joins. The cost may also be dominated by the scan, not the shuffle itself
 
@@ -208,9 +210,9 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 #### Profile fetch fails
 
 - Profile may be evicted (Doris keeps profiles for a limited time, often 5-15 minutes)
-- HTTP port may be misconfigured: Cloud mode uses 8080, self-hosted Doris uses 8030. `{{CLI}} auth status` shows `http_status` and `http_probe`
+- HTTP port may be misconfigured: Cloud mode uses 8080, self-hosted Doris uses 8030. `doriscli auth status` shows `http_status` and `http_probe`
 - FE may be unreachable: check the `served_by` and `fetch_attempts` fields in the error response
-- **Recovery**: if profile is evicted, try `profile history` for trend data and `profile list` for nearby recent runs. Ask user to re-run with `--profile` only after the safety gate passes. If HTTP port is wrong, guide user to fix with `{{CLI}} auth add` (re-add environment with correct `--http-port`)
+- **Recovery**: if profile is evicted, try `profile history` for trend data and `profile list` for nearby recent runs. Ask user to re-run with `--profile` only after the safety gate passes. If HTTP port is wrong, guide user to fix with `doriscli auth add` (re-add environment with correct `--http-port`)
 
 #### Tablet metadata lag
 
@@ -225,15 +227,15 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 
 #### Connection fails during investigation
 
-- If `{{CLI}} auth status` shows `mysql_status: unreachable` or `http_status: unreachable`, diagnose the connection before continuing with query investigation
-- For Cloud environments: cluster may be Suspended — check with `{{CLI}} cloud cluster get`
+- If `doriscli auth status` shows `mysql_status: unreachable` or `http_status: unreachable`, diagnose the connection before continuing with query investigation
+- For storage-compute (cloud mode) deployments: compute may be suspended or scaled to zero — `doriscli auth status` shows `backends`; an empty or all-not-`alive` list means compute is unavailable. Resume it from your cluster-management console
 - For BYOC: may need SOCKS5 proxy
 
 ---
 
-### Fallback SQL (When {{CLI}} is unavailable)
+### Native SQL + HTTP path (always available)
 
-Use these via `mysql` client or any MySQL-compatible tool:
+This path needs no special tooling — Apache Doris speaks the MySQL protocol. Use these via the `mysql` client or any MySQL-compatible tool:
 
 ```sql
 -- Table structure

@@ -54,9 +54,9 @@ For fleet tracking with regulatory 3-year retention:
 
 ## Platform Consolidation Mapping
 
-| Current system | Role | {{PRODUCT_NAME}} replacement |
+| Current system | Role | Apache Doris replacement |
 |---------------|------|-------------------|
-| Presto (10,000 cores) | Ad-hoc analytics | {{PRODUCT_NAME}} MPP engine — 3x faster, 48% fewer resources (SF Express case) |
+| Presto (10,000 cores) | Ad-hoc analytics | Apache Doris MPP engine — 3x faster, 48% fewer resources (SF Express case) |
 | Kudu | Real-time updates | UNIQUE MoW or AGGREGATE with REPLACE_IF_NOT_NULL |
 | Elasticsearch | Waybill search, address search | Inverted index with unicode parser |
 | HBase | Parcel status point lookup | UNIQUE MoW + store_row_column (30K QPS on 16-core) |
@@ -72,4 +72,4 @@ For fleet tracking with regulatory 3-year retention:
 | GIS functions for geofencing | `official` — ST_CONTAINS, ST_DISTANCE_SPHERE |
 | BITMAP_UNION for dock utilization time slicing | `official` — exact time-slot dedup |
 | Inverted index replacing ES | `official` — MATCH_ANY/MATCH_PHRASE for waybill/address search |
-| Presto → {{PRODUCT_NAME}} consolidation | `field` — SF Express: 3x perf improvement, 48% resource savings, 100% Presto migration |
+| Presto → Apache Doris consolidation | `field` — SF Express: 3x perf improvement, 48% resource savings, 100% Presto migration |

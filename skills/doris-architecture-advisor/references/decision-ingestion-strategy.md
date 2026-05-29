@@ -30,12 +30,12 @@ curl -u user:pass -H "label:load_20250101" \
 ## Group Commit
 Best for high-frequency small writes that cannot batch client-side.
 ```sql
--- Server-side batching: {{PRODUCT_NAME}} accumulates small inserts
+-- Server-side batching: Apache Doris accumulates small inserts
 -- and flushes them together
 SET group_commit = async_mode;
 INSERT INTO table VALUES (...);
 ```
-- {{PRODUCT_NAME}} buffers small inserts server-side, flushes as one batch
+- Apache Doris buffers small inserts server-side, flushes as one batch
 - Reduces part creation pressure from many small writers
 - IoT gateway pattern: each gateway sends small batches → Group Commit merges
 
@@ -59,7 +59,7 @@ Best for bulk import from object storage.
 
 ## Write Throughput Reference
 
-{{PRODUCT_NAME}} achieves tens of GB/s write throughput with:
+Apache Doris achieves tens of GB/s write throughput with:
 - Time-series compaction (`compaction_policy = "time_series"`) — millisecond-level compaction, near-zero memory overhead
 - Columnar storage with optimized flush
 - Vectorized index construction

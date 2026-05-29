@@ -32,7 +32,7 @@
 ## Architecture
 
 ```
-Internal Systems              Ingestion                   {{PRODUCT_NAME}} (Real-time DW)              Applications
+Internal Systems              Ingestion                   Apache Doris (Real-time DW)              Applications
 ┌─────────────┐                                          ┌─────────────────────────┐
 │ CRM         │── Flink CDC ────────────────────────────│ ODS (UNIQUE MoW)         │
 │ ERP         │                                          │  ods_orders, ods_members  │
@@ -162,4 +162,4 @@ Use Workload Groups to isolate brand teams:
 | Workload Groups for multi-brand isolation | `official` — CPU/memory isolation |
 | Separate compute group for peak season | `derived` — elastic scaling during Double 11 / 618 |
 | Async MV for DWD→DWS→ADS ETL | `official` — replaces Spark/Hive batch processing |
-| 64 vCPU / 3 TB cache | `field` — ~75% accuracy; confirm with {{PRODUCT_NAME}} SA |
+| 64 vCPU / 3 TB cache | `field` — ~75% accuracy; confirm with Apache Doris SA |
