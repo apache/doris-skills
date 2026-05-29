@@ -1,6 +1,7 @@
 # Agent Skills for Apache Doris
 
-Apache Doris agent skills for use with Claude Code. This repository contains the
+Apache Doris agent skills in the open Agent Skills (`SKILL.md`) format — usable by
+Claude Code, Cursor, Codex, Cline, Amp, and other agent tools. This repository contains the
 **kernel knowledge** for any Apache Doris deployment: table design, sizing, query
 investigation, and architecture decisions.
 
@@ -27,7 +28,15 @@ intentionally out of scope here; use your platform's cluster-management console 
 
 ## How to use
 
-Copy the skills into your Claude Code skills directory:
+Install with the open [`skills`](https://github.com/vercel-labs/skills) CLI — it works
+across agent tools (Claude Code, Cursor, Codex, Cline, Amp, …), auto-discovers both
+skills in this repo, and bundles their `references/`:
+
+```bash
+npx skills add apache/doris-skills
+```
+
+Or copy them in manually:
 
 ```bash
 cp -r skills/* ~/.claude/skills/
