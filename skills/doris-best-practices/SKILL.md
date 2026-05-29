@@ -87,7 +87,7 @@ Run through this checklist in order. Each step references the relevant rule:
 - [ ] **DDL hard constraints** (Apache Doris rejects DDL if any violated):
   - UNIQUE KEY + PARTITION BY RANGE → partition column MUST be in the UNIQUE KEY: `UNIQUE KEY(id, dt) PARTITION BY RANGE(dt)`
   - Key columns must be the FIRST N columns in schema, same order — put key cols first, non-key after. Example: `UNIQUE KEY(account_id, symbol)` means schema must start with `account_id, symbol, ...` — never place non-key columns between key columns
-  - `store_row_column = "true"` only works on UNIQUE MoW — NOT on AGGREGATE or DUPLICATE
+  - `store_row_column = "true"` works on UNIQUE MoW and DUPLICATE — NOT on AGGREGATE (Doris rejects AGG: "Aggregate table can't support row column"). Verified on 4.x; older versions were UNIQUE-only
   - AUTO PARTITION requires `date_trunc()` AND empty parens: `AUTO PARTITION BY RANGE(date_trunc(col, 'day')) ()` — bare column name fails, missing `()` fails
   - Dynamic partition requires explicit `PARTITION BY RANGE(col) ()` clause in DDL — properties alone are not enough
   - Do not set `dynamic_partition.buckets`; put the numeric count only in `DISTRIBUTED BY HASH(col) BUCKETS N`

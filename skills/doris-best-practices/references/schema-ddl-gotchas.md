@@ -32,13 +32,13 @@ CREATE TABLE t (log_time DATETIME, account_id VARCHAR, action VARCHAR, order_id 
 DUPLICATE KEY(log_time, account_id, action)
 ```
 
-### 3. store_row_column only works on UNIQUE KEY (MoW) — NOT on AGGREGATE or DUPLICATE
+### 3. store_row_column works on UNIQUE KEY (MoW) and DUPLICATE — NOT on AGGREGATE
 
 ```sql
--- FAILS:
-AGGREGATE KEY(user_id) PROPERTIES ("store_row_column" = "true")  -- ERROR
+-- FAILS (only AGGREGATE is rejected):
+AGGREGATE KEY(user_id) PROPERTIES ("store_row_column" = "true")  -- ERROR: Aggregate table can't support row column
 
--- CORRECT: only on UNIQUE KEY with MoW
+-- CORRECT: UNIQUE KEY with MoW (the point-query use case); also accepted on DUPLICATE since 4.x
 UNIQUE KEY(user_id) PROPERTIES ("enable_unique_key_merge_on_write" = "true", "store_row_column" = "true")
 ```
 
