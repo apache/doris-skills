@@ -43,8 +43,16 @@ cp -r skills/* ~/.claude/skills/
 ```
 
 For the structured-diagnosis path (query profiles, tablet health), also install
-doriscli from the companion `doris-cli` repository. Without it, the skills use the
-SQL + HTTP fallback automatically.
+doriscli. The recommended way is from **npm**, which ships prebuilt binaries (no
+Rust toolchain, no compile step):
+
+```bash
+npm install -g @apache-doris/doriscli
+doriscli --version
+```
+
+For other platforms, or to build from source, see the companion `doris-cli`
+repository. Without doriscli, the skills use the SQL + HTTP fallback automatically.
 
 ## Authoring rules
 
