@@ -7,7 +7,7 @@ tags: [cli, investigation, diagnostics, profiling, slow-query]
 
 Evidence-first runtime diagnosis using doriscli. Collect profile, tablet, DDL, stats, EXPLAIN, or connection evidence before forming hypotheses. Do not jump to schema fixes.
 
-> `doriscli` is the **Apache Doris CLI** — install it for ergonomic profiling and diagnostics. If it is not installed, use the **Native SQL + HTTP path** at the end of this document — it is always available and the diagnostic reasoning is identical.
+> `doriscli` is the **Apache Doris CLI** — install it with `npm install -g @apache-doris/doriscli` for ergonomic profiling and diagnostics. If it is not installed, use the **Native SQL + HTTP path** at the end of this document — it is always available and the diagnostic reasoning is identical.
 
 ---
 
@@ -125,7 +125,7 @@ Key fields in `profile get` response:
 | `operators[]` | `blocked_on_upstream` | Wait exceeded 2x exec time |
 | `operators[]` | `cache_hit_pct` | Cache effectiveness |
 | `operators[]` | `runtime_filters` | Runtime filter applied |
-| `scanned_tables[]` | `tablet_skew` | Tablet size distribution ratio |
+| `scanned_tables.<table>` | `tablet_skew`, `ddl`, `total_rows` | Per-scanned-table context, keyed by table name (auto-fetched DDL + skew) |
 | `time_breakdown` | `plan` | Planning phase duration |
 
 ### Tablet Output Fields
@@ -209,9 +209,9 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 
 #### Profile fetch fails
 
-- Profile may be evicted (Doris keeps profiles for a limited time, often 5-15 minutes)
+- Profile may be evicted: Doris keeps only a limited number of profiles per FE (controlled by `max_query_profile_num`), so an older `query_id` ages out — sooner on a busy cluster. Capture profiles promptly after the query runs
 - HTTP port may be misconfigured: Cloud mode uses 8080, self-hosted Doris uses 8030. `doriscli auth status` shows `http_status` and `http_probe`
-- FE may be unreachable: check the `served_by` and `fetch_attempts` fields in the error response
+- FE may be unreachable: the fallback response lists every endpoint tried in `fetch_attempts` (each with its failure reason) plus a `note` with the likely cause. `served_by`/`fetch_via` appear only on a successful fetch, naming the FE that answered
 - **Recovery**: if profile is evicted, try `profile history` for trend data and `profile list` for nearby recent runs. Ask user to re-run with `--profile` only after the safety gate passes. If HTTP port is wrong, guide user to fix with `doriscli auth add` (re-add environment with correct `--http-port`)
 
 #### Tablet metadata lag
@@ -227,7 +227,7 @@ Each mapping below is a **hypothesis**, not a guaranteed root cause. Present as:
 
 #### Connection fails during investigation
 
-- If `doriscli auth status` shows `mysql_status: unreachable` or `http_status: unreachable`, diagnose the connection before continuing with query investigation
+- If `doriscli auth status` shows a `mysql_status` other than `connected` (it returns `error: <reason>` on failure) or `http_status: unreachable`, diagnose the connection before continuing with query investigation
 - For storage-compute (cloud mode) deployments: compute may be suspended or scaled to zero — `doriscli auth status` shows `backends`; an empty or all-not-`alive` list means compute is unavailable. Resume it from your cluster-management console
 - For BYOC: may need SOCKS5 proxy
 
