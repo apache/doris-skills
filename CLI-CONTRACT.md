@@ -38,6 +38,14 @@ present.
 - `scanned_tables.<table>.{ddl, tablet_skew, total_rows}` (object keyed by table name)
 - `served_by`, `fetch_attempts` (present on fetch failure)
 
+**`profile diff`** (shares `profile get`'s profile-fetch path)
+- `slow.{query_id, total_time_ms, operator_count}`, `fast.{…}`
+- `time_ratio`, `operator_diffs[]`
+
+**`profile history`** (p50/p99 trend from `audit_log`; independent of profile fetch)
+- `executions`, `entries[].{query_id, query_time_ms, state}`
+- `stats.query_time_ms.{p50, p99}` (present when ≥1 match)
+
 **`tablet`**
 - `model`, `bucket_key`, `bucket_count`, `sort_key`, `total_rows`
 - `health.tablet_skew`
@@ -46,3 +54,5 @@ present.
 **`auth status`**
 - `mysql_status`, `http_status`, `http_probe`
 - `backends[].alive` (empty / all-not-alive ⇒ compute suspended or unavailable)
+
+**`use`** — state-changing (switch the active env); no JSON-field contract.

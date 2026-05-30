@@ -90,7 +90,7 @@ report="../reports/L2-$stamp.md"
   echo "| result | command | contract field | note |"
   echo "|---|---|---|---|"
 } > "$report"
-pass=0; fail=0
+pass=0; fail=0; xfail=0; xpass=0
 
 assert() {  # assert <cmd-label> <field-label> <json> <jq-bool-expr> [note]
   local cmd="$1" fld="$2" json="$3" expr="$4" note="${5:-}"
@@ -100,6 +100,22 @@ assert() {  # assert <cmd-label> <field-label> <json> <jq-bool-expr> [note]
   else
     fail=$((fail+1)); err "FAIL  $cmd → $fld  (missing/null)"
     echo "| ❌ FAIL | \`$cmd\` | $fld | missing/null on this cluster${note:+ — $note} |" >> "$report"
+  fi
+}
+
+# xassert — like assert, but the field is a KNOWN doriscli limitation on this
+# cluster, so a miss is EXPECTED (xfail, non-fatal). If it unexpectedly resolves,
+# that is an xpass: the marker is stale and should be removed. Neither counts as
+# a hard failure, so the suite stays green on known-doriscli-only gaps but flags
+# loudly when reality changes.
+xassert() {  # xassert <cmd> <field> <json> <jq-bool-expr> <reason>
+  local cmd="$1" fld="$2" json="$3" expr="$4" reason="$5"
+  if printf '%s' "$json" | jq -e "$expr" >/dev/null 2>&1; then
+    xpass=$((xpass+1)); warn "XPASS $cmd → $fld  (now resolves — remove xfail?)"
+    echo "| 🎉 xpass | \`$cmd\` | $fld | now resolves on this cluster — remove the xfail marker ($reason) |" >> "$report"
+  else
+    xfail=$((xfail+1)); dim "xfail $cmd → $fld  (known: $reason)"
+    echo "| 🟡 xfail | \`$cmd\` | $fld | known doriscli gap — $reason |" >> "$report"
   fi
 }
 
@@ -125,6 +141,10 @@ QJOIN='SELECT d.category,count(*) c,sum(s.amount) t FROM '"$SCRATCH_DB"'.sales s
 J=$(dcli sql "$QJOIN" --profile --set 'profile_level=2')
 assert "sql --profile" "query_id" "$J" '.query_id != null'
 QID=$(printf '%s' "$J" | jq -r '.query_id // empty')
+# a second profiled query so `profile diff` has two query_ids to compare
+QSCAN='SELECT count(*) c FROM '"$SCRATCH_DB"'.sales WHERE amount>50'
+J2=$(dcli sql "$QSCAN" --profile --set 'profile_level=2')
+QID2=$(printf '%s' "$J2" | jq -r '.query_id // empty')
 
 # --- profile list ----------------------------------------------------------
 J=$(dcli profile list --limit 5)
@@ -135,15 +155,45 @@ assert "profile list" "[].query_id" "$J" '(type=="array") and (.[0].query_id != 
 J=""; for _ in 1 2 3 4 5; do J=$(dcli profile get "$QID"); printf '%s' "$J" | jq -e '(.operators|length)>0' >/dev/null 2>&1 && break; done
 assert "profile get" "summary.total_time_ms"      "$J" '.summary.total_time_ms != null'
 assert "profile get" "operators[]"                "$J" '(.operators|type=="array") and ((.operators|length)>0)' "needs profile_level=2 AND doriscli must decode a large profile"
+# Fixed in doriscli dd3f417 (parser: keep per-operator counters when a PlanInfo
+# block precedes them) — was xfail on the pre-fix 0.1.x build, verified resolved
+# on 5.0.0 cloud. Back to a normal assert. (xassert helper retained for future gaps.)
 assert "profile get" "query_stats.total_scan_rows" "$J" '.query_stats.total_scan_rows != null'
 assert "profile get" "time_breakdown.plan"        "$J" '.time_breakdown.plan != null'
 assert "profile get" "scanned_tables.<t>"         "$J" '(.scanned_tables|type=="object") and ((.scanned_tables|length)>0)'
 
+# --- profile diff (two profiled queries; shares profile get's fetch path) --
+J=""; for _ in 1 2 3 4 5; do J=$(dcli profile diff "$QID" "$QID2"); printf '%s' "$J" | jq -e '.slow.query_id != null' >/dev/null 2>&1 && break; done
+assert "profile diff" "slow.query_id"    "$J" '.slow.query_id != null'
+assert "profile diff" "fast.query_id"    "$J" '.fast.query_id != null'
+assert "profile diff" "operator_diffs[]" "$J" '(.operator_diffs|type=="array")'
+assert "profile diff" "time_ratio"       "$J" '.time_ratio != null'
+
+# --- profile history (p50/p99 trend from audit_log; independent fetch path) -
+# Shape check: command + JSON contract resolve even with 0 matches
+# ({executions:0, entries:[]}). Fails only if audit_log is inaccessible.
+J=$(dcli profile history "sales" --days 7 --limit 5)
+assert "profile history" "executions" "$J" '.executions != null'
+assert "profile history" "entries[]"  "$J" '(.entries|type=="array")'
+
+# --- use (env switch) — a state change, not a JSON-contract command; not
+# exercised in L2's stateless mode (HOST/USER set => no named env to switch).
+# Assert only that the command still exists in doriscli's CLI surface.
+if "$DCLI" use --help >/dev/null 2>&1; then
+  pass=$((pass+1)); ok "PASS  use → command exists (stateless: switch not exercised)"
+  echo "| ✅ pass | \`use\` | command exists | stateless harness: env-switch not exercised |" >> "$report"
+else
+  fail=$((fail+1)); err "FAIL  use → command missing (use --help non-zero)"
+  echo "| ❌ FAIL | \`use\` | command exists | \`use --help\` did not exit 0 |" >> "$report"
+fi
+
 # --- cleanup ---------------------------------------------------------------
 [ "${KEEP:-0}" = 1 ] || "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$SCRATCH_DB\`" >/dev/null 2>&1
 
-{ echo; echo "**$pass passed, $fail failed** — $((pass+fail)) contract checks."; } >> "$report"
+{ echo; echo "**$pass passed, $fail failed, $xfail xfail, $xpass xpass** — $((pass+fail+xfail+xpass)) contract checks."; } >> "$report"
 log ""
-[ $fail -eq 0 ] && ok "L2: $pass passed, $fail failed." || err "L2: $pass passed, $fail failed."
+sumline="L2: $pass passed, $fail failed, $xfail xfail, $xpass xpass."
+[ $fail -eq 0 ] && ok "$sumline" || err "$sumline"
+[ "$xpass" -gt 0 ] && warn "  ↳ $xpass xpass: a known-fail now resolves — review/remove the xfail marker."
 log "report: ${report#../}"
 [ $fail -eq 0 ]

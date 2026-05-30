@@ -7,7 +7,7 @@ Apache Doris cluster and against `doriscli`. Three layers:
 |---|---|---|---|
 | **L1 — knowledge** | Every DDL template (T1–T5) and DDL gotcha in `doris-best-practices/SKILL.md` is accepted / rejected exactly as claimed | `mysql` client | ✅ `run.sh` |
 | **L2 — CLI contract** | Every command + JSON field in `CLI-CONTRACT.md` really exists in `doriscli` | `doriscli --format json` + `jq` | ✅ `cli/run.sh` |
-| **L3 — behavior** | Triggering, evidence-first / safety guardrails, end-to-end DDL that loops back through L1 | `claude` + skill-creator eval harness | ⏳ planned |
+| **L3 — behavior** | Triggering, evidence-first / safety guardrails, end-to-end DDL that loops back through L1 | nested `claude -p` | 🟡 `behavior/run.sh` (v1) |
 
 ## Run L1
 
@@ -27,15 +27,16 @@ case fails, so it drops straight into CI.
 
 ## L1 coverage
 
-27 cases: the 5 DDL templates (T1–T5) and the `doris-best-practices/SKILL.md` §2
+29 cases: the 5 DDL templates (T1–T5) and the `doris-best-practices/SKILL.md` §2
 "DDL hard constraints" matrix — each constraint as a reject case (often with a
-matching accept case): BOOLEAN-default quoting, `store_row_column` per model,
+matching accept case): BOOLEAN-default quoting (unquoted `TRUE` and the invalid
+`DEFAULT "null"` literal), `store_row_column` per model,
 `compaction_policy=time_series` per model, inline-vs-PROPERTIES BloomFilter,
 AGGREGATE column syntax (agg-fn order, `DEFAULT "null"` type rule), UNIQUE+RANGE
 partition-column-in-key, key-columns-prefix order, AUTO PARTITION (`date_trunc`
 + empty parens), dynamic-partition needs a `PARTITION BY` clause,
 `enable_unique_key_partial_update` as a (rejected) table property, and async-MV
-`REFRESH` syntax / `NOW()` nondeterministic-function rule.
+`REFRESH` syntax / minimum 1-MINUTE interval / `NOW()` nondeterministic-function rule.
 
 Intentionally **not** L1 cases: claims that are advisory rather than DDL-rejections
 (e.g. "don't set `dynamic_partition.buckets`" — Doris does not reject it), and the
@@ -46,21 +47,43 @@ runtime-diagnosis / sizing reference rules (those belong to L2/L3). Perf claims
 
 `cli/run.sh` seeds a fact+dim dataset, then asserts every command + JSON field that
 `../CLI-CONTRACT.md` hard-codes resolves against the live cluster (auto-detecting the
-doriscli binary and FE HTTP port). On Doris 4.1.1, **14 pass, 4 fail** — all four
-failures are `profile get` operator-level fields (`operators[]`, `query_stats.*`,
-`time_breakdown.plan`, `scanned_tables`). `auth status`, `tablet`, `sql`, and
-`profile list` fully satisfy the contract.
+doriscli binary and FE HTTP port). It covers `auth status`, `tablet`, `sql --profile`,
+`profile list`, `profile get`, `profile diff`, `profile history`, and `use`
+(existence-only — it is state-changing, so it has no JSON contract and is not exercised
+in L2's stateless mode; the suite only asserts the command still exists).
 
-Root cause of the `profile get` gap (doriscli 0.1.0, **not** the skills):
-1. Operator detail needs `profile_level=2` (default is `1`); doriscli's `--profile`
-   only sets `enable_profile=true`, so the profile has no operator tree.
-2. With `profile_level=2` the operator-rich profile is large (~1.2 MB for a trivial
-   join) and doriscli's `resp.json()` (`src/connection/http.rs:195`) fails to decode
-   it — the body is valid JSON (verified with jq + python), so the bug is doriscli's.
+Latest run, **Doris 5.0.0 (cloud)** with doriscli post-`dd3f417`: **25 pass, 0 fail.**
 
-Effect: the skills' runtime-diagnosis layer (`cli-investigation.md`) reads those
-fields, so on 4.1.1 they come back null — exactly the "silently degrades to null"
-failure the contract warns about. The suite stays red here until doriscli is fixed.
+### How the suite earned its keep — the `total_scan_rows` gap (doriscli, **not** skills)
+
+On **4.1.1**, `profile get` returned null for `operators[]`, `time_breakdown.plan`,
+`scanned_tables`, and `query_stats.total_scan_rows` — one root cause: a `resp.json()`
+decode failure on the ~1.2 MB `profile_level=2` profile (`src/connection/http.rs:195`).
+On **5.0.0** the first three resolved, leaving `total_scan_rows` null via a *different*
+cause — the per-operator `RowsProduced` counter (which `total_scan_rows` is summed
+from, `summary.rs:284`) was dropped whenever a `PlanInfo` block preceded it in the
+merged profile. The suite marked it `xfail`; doris-cli fixed it in **`dd3f417`** ("keep
+per-operator counters when a PlanInfo block precedes them"); re-running here flipped the
+marker to `xpass`, confirming the fix, so it is back to a plain `assert`. The `xassert`
+(xfail / xpass) mechanism stays in `cli/run.sh` for the next version-specific gap.
+
+## L3 coverage (in progress)
+
+`behavior/run.sh` drives a nested `claude -p` (with `CLAUDECODE` unset) to check the
+skills *behave* as written, not just that the prose is correct. The skill text is
+injected via `--append-system-prompt` so the behavior under test is this repo's skill,
+isolated from any look-alike skill installed globally. The model is non-deterministic,
+so bump `SAMPLES` to repeat each case.
+
+Implemented (v1):
+- **Evidence-first hard gate** (`cli-investigation.md`): a slow-query prompt with no
+  evidence, run with `--disallowedTools Bash` so evidence can't be collected, must
+  yield an investigation plan + read-only commands and must **not** propose
+  DDL/MV/ALTER fixes. (`SHOW CREATE …` is excluded — it's a read-only evidence command.)
+
+Planned: connection-first rule, the `--profile` safety gate, sizing-as-total-vCPU
+(no per-node), brand-neutrality, triggering accuracy (needs a skill-isolated env to
+avoid the global look-alike), and the advisor→DDL→loop-back-through-L1 check.
 
 ## How a case works
 
