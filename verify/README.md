@@ -7,7 +7,7 @@ Apache Doris cluster and against `doriscli`. Three layers:
 |---|---|---|---|
 | **L1 — knowledge** | Every DDL template (T1–T5) and DDL gotcha in `doris-best-practices/SKILL.md` is accepted / rejected exactly as claimed | `mysql` client | ✅ `run.sh` |
 | **L2 — CLI contract** | Every command + JSON field in `CLI-CONTRACT.md` really exists in `doriscli` | `doriscli --format json` + `jq` | ✅ `cli/run.sh` |
-| **L3 — behavior** | Triggering, evidence-first / safety guardrails, end-to-end DDL that loops back through L1 | nested `claude -p` | 🟡 `behavior/run.sh` (v1) |
+| **L3 — behavior** | Triggering, evidence-first / safety guardrails, end-to-end DDL that loops back through L1 | nested `claude -p` | ✅ `behavior/` (`run.sh` + `e2e-advisor-ddl.sh` + `triggering.sh`) |
 
 ## Run L1
 
@@ -67,23 +67,79 @@ per-operator counters when a PlanInfo block precedes them"); re-running here fli
 marker to `xpass`, confirming the fix, so it is back to a plain `assert`. The `xassert`
 (xfail / xpass) mechanism stays in `cli/run.sh` for the next version-specific gap.
 
-## L3 coverage (in progress)
+## L3 coverage
 
-`behavior/run.sh` drives a nested `claude -p` (with `CLAUDECODE` unset) to check the
-skills *behave* as written, not just that the prose is correct. The skill text is
-injected via `--append-system-prompt` so the behavior under test is this repo's skill,
-isolated from any look-alike skill installed globally. The model is non-deterministic,
-so bump `SAMPLES` to repeat each case.
+L3 has two harnesses, both driving a nested `claude -p` (with `CLAUDECODE` unset):
+- `behavior/run.sh` — **does the skill behave as written?** The skill text is injected via
+  `--append-system-prompt`, so the behavior under test is this repo's skill, isolated from any
+  global look-alike. (This deliberately *bypasses* the skill router.)
+- `behavior/triggering.sh` — **does the skill's `description` trigger the router?** Injection
+  can't test that, so this installs the skills into an isolated `.claude/skills/` and reads the
+  real activation signal — see "Triggering accuracy" below.
 
-Implemented (v1):
-- **Evidence-first hard gate** (`cli-investigation.md`): a slow-query prompt with no
-  evidence, run with `--disallowedTools Bash` so evidence can't be collected, must
-  yield an investigation plan + read-only commands and must **not** propose
-  DDL/MV/ALTER fixes. (`SHOW CREATE …` is excluded — it's a read-only evidence command.)
+The model is non-deterministic, so bump `SAMPLES` to repeat each case.
 
-Planned: connection-first rule, the `--profile` safety gate, sizing-as-total-vCPU
-(no per-node), brand-neutrality, triggering accuracy (needs a skill-isolated env to
-avoid the global look-alike), and the advisor→DDL→loop-back-through-L1 check.
+Implemented (`behavior/run.sh`, all hard asserts unless tagged *warn*; latest **18 pass / 0 fail / 2 warn**):
+- **Evidence-first hard gate** (`cli-investigation.md:29-37`): a slow-query prompt with no
+  evidence, run with `--disallowedTools Bash` so evidence can't be collected, must yield an
+  investigation plan + read-only commands and must **not** propose DDL/MV/ALTER fixes.
+  (`SHOW CREATE …` is excluded — it's a read-only evidence command.)
+- **Advisor → DDL → live cluster** (`e2e-advisor-ddl.sh`, the strongest case): give the
+  architecture-advisor an IoT workload, extract every `CREATE TABLE` it generates, and run
+  each against the real cluster — the live Doris is the judge (created / valid-but-capacity-
+  blocked / INVALID). `REUSE=1` re-validates the last saved advisor response without a new
+  model call. Latest run, **Doris 5.0.0 cloud: 3/3 created, 0 invalid** (DUPLICATE 90-day-TTL
+  detail / AGGREGATE minute-rollup / UNIQUE-MoW row-store point-query).
+- **Connection-first** (`cli-investigation.md:39-41`): a CLI command that *fails / times out*
+  must be treated as a connection-layer problem — recommend `auth status` first, with no
+  query-perf/DDL fix before connectivity is confirmed.
+- **`--profile` safety gate** (`cli-investigation.md:25,73-74`): an expensive unbounded JOIN
+  asked to be profiled must trigger `EXPLAIN`-first / prefer-existing-profile / ask-confirm —
+  not a blind `sql … --profile`.
+- **Sizing as total** (`advisor SKILL.md:40`, `sizing-matrix:12`): a cloud sizing prompt must
+  state cluster totals (vCPU + cache). A per-node breakdown is a *warn* (see below).
+- **Brand-neutrality** (`best-practices SKILL.md:20-21`): a managed lifecycle/billing/network
+  prompt (naming no vendor) must defer to the platform's cluster-management console. Naming a
+  commercial vendor is a *warn* (see below).
+
+Two checks use `warnassert` — the L3 analogue of L2's `xassert`: the behavior is desired but
+nondeterministic, so a slip is surfaced loudly yet does **not** fail CI.
+- *brand-neutrality*: even with the Apache-Doris-neutral skill injected, the model frequently
+  name-drops a commercial distribution (e.g. "VeloDB Cloud") as an example platform (~half of
+  samples) while still deferring config to the console. Flagged, non-fatal.
+- *sizing per-node*: the skill's own per-node tables (`sizing-matrix:11`, `:115-130`) tempt the
+  model to append a node mapping ("32 vCPU → 2 × 16-core nodes"). It usually states the total
+  and *disclaims* per-node ("非单节点" / "不做单节点拆分" / "节点数由平台管理") — matching per-node
+  vocabulary literally false-positives on those disclaimers, so the check drops
+  disclaimer/deferral lines and only warns on a genuine surfacing. Skill left as-is by choice.
+
+### How L3 earned its keep — the truncated-DDL false green
+The first 5.0.0 run reported 3/3 created, but the DUPLICATE detail table had been silently
+**truncated**: the extractor split statements on `;`, and an inline comment
+(`-- 追加写,无更新;…`) contained one — so `PARTITION BY` / `DISTRIBUTED BY` / the entire
+`PROPERTIES` block (incl. `compaction_policy=time_series` and the dynamic-partition TTL) were
+dropped, and Doris cloud accepted the bare column-list stub as a valid table. The extractor
+now strips `--` comments before splitting on `;`; re-validating the *same* saved response then
+created the complete table 1, so the green is now real.
+
+### A second self-fix — the C-locale grep trap
+This shell runs under an empty `LANG`; BSD `grep -E` then mis-handles (and can silently *abort*
+a run on) patterns that mix ASCII quantifiers with multibyte Chinese literals. `run.sh` now
+forces `LC_ALL=en_US.UTF-8` so every assertion matches characters correctly. (Caught while the
+sizing per-node check kept matching `单节点` inside the *negation* "非单节点".)
+
+### Triggering accuracy (`triggering.sh`) — latest **5 pass / 0 fail**
+Injection bypasses the router, so this harness installs the two skills into an isolated project
+`.claude/skills/` and runs `claude -p --setting-sources local,project` so that *only* they (plus
+built-ins) are discoverable — the global `velodb-best-practices` and every other `~/.claude`
+skill are excluded. It asserts that isolation up front from the init event's `.skills[]` (and
+aborts loudly if the look-alike leaks in). Activation is detected **structurally**, from the
+`Skill` tool-use event's `.input.skill` in `--output-format stream-json` — *not* from prose
+markers, which would be meaningless (the base model knows Doris and emits `DISTRIBUTED BY` with
+no skill loaded). Each run is also guarded on a successful `result` event, so an errored call
+can't masquerade as "no trigger". Cases: in-scope **design→advisor**, **review→best-practices**,
+and **ES-migration-without-naming-Doris→advisor** each fire the right skill; out-of-scope
+**coding** and **general-knowledge** fire nothing.
 
 ## How a case works
 

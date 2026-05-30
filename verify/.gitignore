@@ -1,3 +1,4 @@
 env.sh
 reports/
 *.err
+behavior/.work/
