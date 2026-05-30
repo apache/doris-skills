@@ -5,7 +5,7 @@ Claude Code, Cursor, Codex, Cline, Amp, and other agent tools. This repository c
 **kernel knowledge** for any Apache Doris deployment: table design, sizing, query
 investigation, and architecture decisions.
 
-The skills pair with **`doriscli`**, the Apache Doris CLI (companion `doris-cli`
+The skills pair with **`doriscli`**, the Apache Doris CLI (companion [`doris-cli`](https://github.com/apache/doris-cli)
 repository). doriscli is the "hands" — it runs SQL, fetches and parses query profiles,
 and analyzes tablet distribution, all as structured JSON; these skills are the "brain" —
 the decision logic that reads that JSON and recommends table designs, sizing, and fixes.
@@ -51,8 +51,22 @@ npm install -g @apache-doris/doriscli
 doriscli --version
 ```
 
-For other platforms, or to build from source, see the companion `doris-cli`
+For other platforms, or to build from source, see the companion [`doris-cli`](https://github.com/apache/doris-cli)
 repository. Without doriscli, the skills use the SQL + HTTP fallback automatically.
+
+## Verification
+
+The factual claims in these skills are regression-tested — against a real Apache Doris
+cluster, against `doriscli`, and against the skills' own runtime behavior — so they don't
+drift from reality. See [`verify/`](verify/README.md); it runs in three layers:
+
+- **L1 — knowledge**: every DDL template and gotcha in `doris-best-practices` is accepted
+  or rejected by a live cluster exactly as the skill claims (`mysql` client).
+- **L2 — CLI contract**: every command and JSON field in [CLI-CONTRACT.md](CLI-CONTRACT.md)
+  really resolves against `doriscli` on a live cluster (`doriscli --format json` + `jq`).
+- **L3 — behavior**: the skills *behave* as written — evidence-first and safety guardrails,
+  an end-to-end advisor→DDL→live-cluster loopback, and skill-router triggering — exercised
+  through a nested `claude -p`.
 
 ## Authoring rules
 
@@ -71,9 +85,10 @@ repository. Without doriscli, the skills use the SQL + HTTP fallback automatical
 doris-skills/
 ├── README.md
 ├── CLI-CONTRACT.md            # doriscli commands + JSON fields the skills depend on
-└── skills/
-    ├── doris-best-practices/
-    └── doris-architecture-advisor/
+├── skills/
+│   ├── doris-best-practices/
+│   └── doris-architecture-advisor/
+└── verify/                    # regression suite for the skills' claims — L1 DDL, L2 CLI, L3 behavior
 ```
 
 ## License
