@@ -20,6 +20,7 @@ Build/source side:
 - Join sink or build operator `RuntimeFilterInfo`.
 - `PublishTime` when publishing filters is visible.
 - Build-side row count, join type, hash table size, and build time.
+- Source-branch scan counters and waits, especially `ScannerWorkerWaitTime`, scan active time, and whether the producer branch arrives too late to help target scans.
 
 Target/scan side:
 
@@ -54,6 +55,9 @@ Weak or useless filter:
 - `FilterRows = 0` or tiny relative to `InputRows`.
 - `WaitTime` is visible but no meaningful rows are filtered.
 - Filter arrives after most scan work, or scan had no large table to prune.
+- Target scan failed to benefit because the RF producer branch was itself slow. In that case the root is late RF production/source-side scan latency, not merely target-side pushdown absence.
+- If the RF producer branch has high `ScannerWorkerWaitTime` or long scan scheduling delay, make late RF production/source-side scanner pressure part of the conclusion. Do not stop at `IsPushDown=false` or target-side large scan volume.
+- When the target scan reads huge rows, RF or zonemap runtime predicates filter little, and `ScannerWorkerWaitTime`/`PerScannerWaitTime` is minutes or hours, keep scanner scheduling/thread-pool pressure as part of the root cause chain even if `IsPushDown=false` is visible. `IsPushDown=false` explains where the filter could not be applied; scanner wait explains why the scan/RF path was slow.
 
 Potentially harmful filter:
 
@@ -80,6 +84,7 @@ The filter type alone does not prove benefit. Always use target-side rows and wa
 - Treating `WaitForRuntimeFilter` as scan CPU.
 - Calling a runtime filter effective from its existence only.
 - Treating an active large scan as a pure scan problem without asking whether an earlier RF from a different join order should have pruned it.
+- Treating target-side RF failure as only pushdown/planner failure without tracing whether the RF source branch arrived late due to scan or scanner-worker waits.
 - Calling an empty RF useful without asking whether the plan paid too much to produce that empty RF.
 - Calling a target-side skip proof of good order while ignoring that source-side scan/build dominated the query.
 - Ignoring `AlwaysTrueFilterRows`, which often means the filter was not selective.
