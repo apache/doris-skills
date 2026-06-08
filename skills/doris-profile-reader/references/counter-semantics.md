@@ -187,7 +187,7 @@ Exchange sink:
 
 - `SerializeBatchTime`, `CompressTime`, `DistributeRowsIntoChannelsTime`, `SplitBlockHashComputeTime`, `LocalSendTime`, `MergeBlockTime`, `SendNewPartitionTime`, `AddPartitionRequestTime`: direct send/shuffle work.
 - `BytesSent`, `LocalBytesSent`, `LocalSentRows`, `UncompressedRowBatchSize`, `BlocksProduced`, `OverallThroughput`: volume/throughput.
-- `RpcMaxTime`, `RpcAvgTime`, `RpcMinTime`, `RpcSumTime`, `RpcCount` on `DATA_STREAM_SINK_OPERATOR`: remote send RPC latency. A high max/avg with meaningful bytes and small serialize/compress time points to network, receiver, or RPC path latency, not local sink CPU.
+- `RpcMaxTime`, `RpcAvgTime`, `RpcMinTime`, `RpcSumTime`, `RpcCount` on `DATA_STREAM_SINK_OPERATOR`: remote send RPC latency. A high max/avg with meaningful bytes and small serialize/compress time points to network, receiver, or RPC path latency, not local sink CPU. Unlike buffer wait counters, high `RpcMaxTime` is still a direct exchange-path bottleneck signal; preserve it in the conclusion or evidence when it is close to wall time or clearly dominates the sink's local timers.
 - `WaitForRpcBufferQueue`, `WaitForBroadcastBuffer`, `WaitForLocalExchangeBufferN`: downstream backpressure or queue capacity wait.
 
 Local exchange and multicast:

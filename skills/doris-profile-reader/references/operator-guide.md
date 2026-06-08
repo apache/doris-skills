@@ -4,9 +4,9 @@ This guide covers the major Doris runtime profile operator families. Use `source
 
 ## Scan Operators
 
-`OLAP_SCAN_OPERATOR` reads Doris internal storage. First check `ScanRows`, `RowsRead`, `ScanBytes`, `ScannerCpuTime`, `ScannerGetBlockTime`, `ScannerWorkerWaitTime`, `IOTimer`, `DecompressorTimer`, predicate timers, lazy read timers, runtime-filter wait/filter counters, and row-filter counters. A long scan is important when active scanner timers and large bytes/rows agree. If `ExecTime` is mostly explained by `RuntimeFilterInfo/RFx WaitTime`, `AcquireRuntimeFilter`, or `WaitForRuntimeFilter`, report it as RF wait latency rather than storage CPU. If the scan includes `TOPN OPT`, `TopNFilterSourceNodeIds`, or a `SharedPredicate`, check DetailProfile for `WaitForRuntimeFilter`; merged `RFx WaitTime` can be zero while a Top-N/dynamic filter wait still inflates scan `ExecTime`. A long `WaitForDependency[...]Time` is not scan CPU. High `ScannerWorkerWaitTime` means scan task queue/thread-pool pressure.
+`OLAP_SCAN_OPERATOR` reads Doris internal storage. First check `ScanRows`, `RowsRead`, `ScanBytes`, `ScannerCpuTime`, `ScannerGetBlockTime`, `ScannerWorkerWaitTime`, `IOTimer`, `DecompressorTimer`, predicate timers, lazy read timers, runtime-filter wait/filter counters, and row-filter counters. A long scan is important when active scanner timers and large bytes/rows agree. If `ExecTime` is mostly explained by `RuntimeFilterInfo/RFx WaitTime`, `AcquireRuntimeFilter`, or `WaitForRuntimeFilter`, report it as RF wait latency rather than storage CPU. If the scan includes `TOPN OPT`, `TopNFilterSourceNodeIds`, or a `SharedPredicate`, check DetailProfile for `WaitForRuntimeFilter`; merged `RFx WaitTime` can be zero while a Top-N/dynamic filter wait still inflates scan `ExecTime`. A long `WaitForDependency[...]Time` is not scan CPU. High `ScannerWorkerWaitTime` means scan task queue/thread-pool pressure, but it can be caused by many tablets/scanners from bucket-pruning failure; check distribution keys, random buckets, tablet fanout, and concurrency before calling it cluster resource contention.
 
-`FILE_SCAN_OPERATOR` reads external files through file scanner and connector code. Prioritize file count/split shape, file read/open/list timers, `FileScannerGetBlockTime`, `ApplyAllRuntimeFilters`, scan rows/bytes, and connector I/O. Metadata/listing time can dominate small queries; data read/decode dominates large ones.
+`FILE_SCAN_OPERATOR` reads external files through file scanner and connector code. Prioritize file count/split shape, file read/open/list timers, `FileScannerGetBlockTime`, `ApplyAllRuntimeFilters`, scan rows/bytes, and connector I/O. Metadata/listing time can dominate small queries; data read/decode dominates large ones. If a file scan feeds a hash join and CTE/data-stream producer, compare per-instance scan/join/send skew before calling the cause only data volume.
 
 `JDBC_SCAN_OPERATOR` reads remote JDBC sources. Prioritize remote query/read/fetch timers, rows, bytes, and network/serialization. A slow JDBC scan may be remote database latency rather than Doris CPU.
 
@@ -28,9 +28,13 @@ This guide covers the major Doris runtime profile operator families. Use `source
 
 `EXCHANGE_OPERATOR` receives data from sender queues. Prioritize `GetDataFromRecvrTime`, deserialize/decompress/filter/merge timers, local/remote bytes received, and produced rows. `WaitForData0`/`WaitForDataN`, `DataArrivalWaitTime`, and `FirstBatchArrivalWaitTime` mean the receiver waited for data. They usually point to upstream work or network/backpressure, not exchange CPU.
 
-`DATA_STREAM_SINK_OPERATOR` sends data across fragments. Prioritize `SerializeBatchTime`, `CompressTime`, `DistributeRowsIntoChannelsTime`, `SplitBlockHashComputeTime`, `LocalSendTime`, `BytesSent`, `LocalBytesSent`, `LocalSentRows`, `RpcMaxTime`/`RpcAvgTime`, and throughput. High RPC time with non-trivial bytes is exchange/network evidence even when local serialization is small. `WaitForRpcBufferQueue`, `WaitForBroadcastBuffer`, and `WaitForLocalExchangeBufferN` are buffer/backpressure waits.
+`DATA_STREAM_SINK_OPERATOR` sends data across fragments. Prioritize `SerializeBatchTime`, `CompressTime`, `DistributeRowsIntoChannelsTime`, `SplitBlockHashComputeTime`, `LocalSendTime`, `BytesSent`, `LocalBytesSent`, `LocalSentRows`, `RpcMaxTime`/`RpcAvgTime`, and throughput. High RPC time with non-trivial bytes is exchange/network or receiver-side evidence even when local serialization is small; do not drop it just because the operator name is a sink. If RPC time is near elapsed time and local sender/receiver active timers are much smaller, make RPC/BE-to-BE transfer or receiver outlier the leading cause candidate, with row volume only as an amplifier. Tens of MB taking seconds in RPC while local send/serialize is milliseconds is abnormal transfer evidence, not just a large-shuffle plan. If only `RpcMaxTime` is high while avg is modest, report it as channel/receiver skew or a remote-send outlier and look for the target fragment/BE before calling it general network slowness. `WaitForRpcBufferQueue`, `WaitForBroadcastBuffer`, and `WaitForLocalExchangeBufferN` are buffer/backpressure waits.
+
+In memory-limit or spill-heavy queries, exchange buffer waits can be downstream symptoms of insufficient memory rather than the root transport problem. Before concluding receiver/network outlier, check query state, memory limit/percentage, spill counters, reservation waits, and whether a successful comparison profile used more memory or parallelism with similar row counts.
 
 `LOCAL_EXCHANGE_OPERATOR` and `LOCAL_EXCHANGE_SINK_OPERATOR` reshuffle data inside one BE. Prioritize hash computation, copy/push/pop timers, local bytes/rows, and skew. Local exchange waits indicate sender/receiver imbalance or downstream pressure.
+
+If local exchange or local exchange sink dependency waits dominate while upstream scan/sort CPU is small, do not jump to client/result-fetch explanations. Treat it as local shuffle/channel imbalance or a local-shuffle implementation/version issue until the sender/receiver row distribution and version context rule that out.
 
 `LOCAL_MERGE_SORT_SOURCE_OPERATOR` receives locally sorted streams. Prioritize merge/get-next/sorted output active timers and rows. A large dependency wait usually means it waited for sort sink completion.
 
@@ -39,6 +43,8 @@ This guide covers the major Doris runtime profile operator families. Use `source
 ## Aggregation Operators
 
 `AGGREGATION_SINK_OPERATOR`, `AGGREGATION_OPERATOR`, `BUCKETED_AGGREGATION_SINK_OPERATOR`, `BUCKETED_AGGREGATION_OPERATOR`, `PARTITIONED_AGGREGATION_SINK_OPERATOR`, and `PARTITIONED_AGGREGATION_OPERATOR` perform hash/merge aggregation. Prioritize `InputRows`, `RowsProduced`, `BuildTime`, `HashTableComputeTime`, `HashTableEmplaceTime`, `HashTableInputCount`, `HashTableSize`, `MergeTime`, `DeserializeAndMergeTime`, `GetResultsTime`, `HashTableIterateTime`, memory counters, and spill counters. Large dependency waits on aggregation source often mean it waited for sink/build completion.
+
+For OOM or high-memory aggregation profiles, identify the aggregate state before blaming upstream joins. Ordered or state-heavy aggregates such as `group_concat`, `array_agg`, distinct aggregates, and aggregate functions over high-cardinality grouping keys can create many large intermediate states. If map-side aggregation builds millions of states or large arenas, the root may be aggregation phase/state cardinality even when a preceding join produced many rows. Treat the join as an input amplifier unless join build/probe memory or intermediate rows dominate memory independently.
 
 `STREAMING_AGGREGATION_OPERATOR` aggregates when input order/streaming mode allows less state. Prioritize `StreamingAggTime`, build/hash table counters, input/output rows, and whether memory/hash table is unexpectedly high.
 
@@ -60,7 +66,9 @@ This guide covers the major Doris runtime profile operator families. Use `source
 
 `SORT_SINK_OPERATOR` receives rows and sorts them. Prioritize input rows, sort/append timers, memory usage for sort blocks, and spill counters.
 
-`SORT_OPERATOR` outputs sorted rows. Prioritize merge/get-next timers, rows produced, output bytes, and source dependency waits only as sink-completion waits.
+`SORT_OPERATOR` outputs sorted rows. Prioritize merge/get-next timers, rows produced, output bytes, and source dependency waits only as sink-completion waits. If the plan/profile shows `TOPN OPT` or `OPT TWO PHASE`, explicitly mention it and check whether the slow path could be the second-phase row fetch or late materialization path rather than local sort CPU, especially when `RESULT_SINK_OPERATOR` or lifecycle time is high but scan/sort rows are tiny or zero.
+
+`SORT_OPERATOR_DEPENDENCY` is not local sort CPU, but it can still be the leading blocker for a specific profile. When it dominates an `ORDER BY LIMIT`/TopN profile, check whether two-phase read is disabled, late materialization or row-id fetch is active, and whether the sort waits disappear in a comparison profile. Do not automatically reassign it to scan fanout or worker scheduling without this TopN/two-phase pass.
 
 `SPILL_SORT_SINK_OPERATOR` and `SPILL_SORT_SOURCE_OPERATOR` are sort paths with spill. Prioritize common spill counters, merge sort time, read/write file times, spilled bytes/rows, and memory.
 
@@ -72,6 +80,8 @@ This guide covers the major Doris runtime profile operator families. Use `source
 
 `UNION_SINK_OPERATOR` and `UNION_OPERATOR` combine child outputs. Prioritize input/output rows, copy/projection time, and child imbalance. Union is rarely the bottleneck unless it moves many rows or projects expensive expressions.
 
+If UNION or local exchange output is extremely concentrated and the query writes to a table, inspect target bucket/key layout and hash distribution expressions before blaming UNION itself. Insert skew often comes from target bucket count, bucket key mismatch, or hot values.
+
 `INTERSECT_OPERATOR`, `EXCEPT_OPERATOR`, `SET_SINK_OPERATOR`, and `SET_PROBE_SINK_OPERATOR` build/probe set state. Prioritize build/probe/get-data/filter timers, hash table rows, extracted rows, memory, and rows produced.
 
 `REPEAT_OPERATOR` expands rows for grouping sets/rollups. Compare input rows to rows produced and output bytes before blaming later exchange or aggregation. A repeat/rollup can create hundreds of millions of rows; the repeat operator's own active time may be moderate, while the real cost appears immediately after it as local hash shuffle, data stream exchange, and aggregation over the expanded rows. In that pattern, downstream wait counters are symptoms and the proof is repeat output volume plus post-repeat active work and skew.
@@ -79,6 +89,14 @@ This guide covers the major Doris runtime profile operator families. Use `source
 `MATERIALIZATION_OPERATOR` materializes slots/projections. Prioritize projection/expression time, output rows/bytes, child `RowIDFetcher` profile info, `MergeResponseTime`, and fetched row-id volume. A high materialization time can also be top/lazy materialization: the operator sends row-id based `multiget_data_v2` RPCs to fetch deferred columns after upstream pruning/top-N. In that case `MaxRpcTime` is remote row-id fetch latency for a batch, not local materialization CPU. Do not promote a top materialization node above upstream scan/join/aggregation evidence when it handles only a small final row set; trace the `row_ids` table back to the branch that produced those rows and report materialization as final fetch latency unless fetched rows/bytes dominate the workload.
 
 `SELECT_OPERATOR` applies predicates/projections. Prioritize predicate/expression/projection active timers and rows filtered/produced.
+
+For string-heavy expressions such as split, regexp, trim/replace chains, or null-handling wrappers, compare expression/projection timers and per-instance skew before blaming only scan or sink volume.
+
+String expression cost may be hidden in join, scan, or sink timers rather than `ProjectionTime`. If SQL applies split/regexp/trim/replace/null-handling chains to massive rows, keep that expression family in the root-cause candidates even without an explicit projection timer.
+
+`SPLIT_BY_STRING`/`cardinality(split_by_string(...))` on massive INSERT/SELECT rows is a special red flag because it materializes arrays to count delimiters. Prefer string split cost plus input-length/progress skew over generic table-sink backpressure unless OLAP sink append/write/close active timers independently dominate. `COUNT_SUBSTRINGS` or `length - length(replace(...))` is the natural rewrite check.
+
+This string red flag is a direct-cost rule, not a license to ignore paired-profile evidence. If the fast/slow comparison mainly changes parallelism, tablet distribution, target bucket layout, or receiver skew, make that resource/layout difference the root layer and keep the string expression as an amplifier unless expression timers stay dominant after those differences are accounted for.
 
 `TABLE_FUNCTION_OPERATOR` expands rows through table functions. Compare input rows to output rows and expression/table-function evaluation time.
 
@@ -100,7 +118,7 @@ This guide covers the major Doris runtime profile operator families. Use `source
 
 ## Table and Connector Sinks
 
-`OLAP_TABLE_SINK_OPERATOR`, `OlapTableSinkOperatorX`, and `OlapTableSinkV2OperatorX` write into Doris storage. Prioritize append/channel timers, rowset build, close/load/commit timers, tablet/channel skew, rows/bytes, and memory. Close/commit only proves sink cost when writer timers agree.
+`OLAP_TABLE_SINK_OPERATOR`, `OlapTableSinkOperatorX`, and `OlapTableSinkV2OperatorX` write into Doris storage. Prioritize append/channel timers, rowset build, close/load/commit timers, tablet/channel skew, rows/bytes, and memory. Close/commit only proves sink cost when writer timers agree. For insert skew, check target bucket count, bucket key, write bucket distribution per BE, and hot key values before concluding generic sink or exchange backpressure.
 
 `GROUP_COMMIT_OLAP_TABLE_SINK_OPERATOR` and `GROUP_COMMIT_BLOCK_SINK_OPERATOR` write through group commit. Prioritize append blocks, group commit flush/queue/commit timers, rows/bytes, and close/wait states.
 

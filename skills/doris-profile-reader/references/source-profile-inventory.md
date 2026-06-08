@@ -1,0 +1,641 @@
+# Doris Source Profile Inventory
+
+## Factory Cases
+- `TDataSinkType::BLACKHOLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1261
+- `TDataSinkType::DATA_STREAM_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1064
+- `TDataSinkType::DICTIONARY_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1085
+- `TDataSinkType::GROUP_COMMIT_BLOCK_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1109
+- `TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1094
+- `TDataSinkType::HIVE_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1117
+- `TDataSinkType::ICEBERG_DELETE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1138
+- `TDataSinkType::ICEBERG_MERGE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1146
+- `TDataSinkType::ICEBERG_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1125
+- `TDataSinkType::JDBC_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1162
+- `TDataSinkType::MAXCOMPUTE_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1154
+- `TDataSinkType::MEMORY_SCRATCH_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1176
+- `TDataSinkType::MULTI_CAST_DATA_STREAM_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1201
+- `TDataSinkType::OLAP_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1095
+- `TDataSinkType::RESULT_FILE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1185
+- `TDataSinkType::RESULT_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1073
+- `TDataSinkType::TVF_TABLE_SINK`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1269
+- `TPlanNodeType::AGGREGATION_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1357
+- `TPlanNodeType::ANALYTIC_EVAL_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1690
+- `TPlanNodeType::ASSERT_NUM_ROWS_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1732
+- `TPlanNodeType::BUCKETED_AGGREGATION_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1473
+- `TPlanNodeType::CROSS_JOIN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1600
+- `TPlanNodeType::DATA_GEN_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1742
+- `TPlanNodeType::EMPTY_SET_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1737
+- `TPlanNodeType::EXCEPT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1717
+- `TPlanNodeType::EXCHANGE_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1346
+- `TPlanNodeType::FILE_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1339
+- `TPlanNodeType::GROUP_COMMIT_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1317
+- `TPlanNodeType::HASH_JOIN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1520
+- `TPlanNodeType::INTERSECT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1712
+- `TPlanNodeType::JDBC_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1326
+- `TPlanNodeType::MATERIALIZATION_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1707
+- `TPlanNodeType::META_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1753
+- `TPlanNodeType::OLAP_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1309
+- `TPlanNodeType::PARTITION_SORT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1673
+- `TPlanNodeType::REC_CTE_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1763
+- `TPlanNodeType::REC_CTE_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1794
+- `TPlanNodeType::REPEAT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1722
+- `TPlanNodeType::SCHEMA_SCAN_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1748
+- `TPlanNodeType::SELECT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1758
+- `TPlanNodeType::SORT_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1640
+- `TPlanNodeType::TABLE_FUNCTION_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1727
+- `TPlanNodeType::UNION_NODE`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1619
+
+## Operator Name Assignments
+- `CACHE_SINK_OPERATOR`: be/src/exec/operator/cache_sink_operator.cpp:49
+- `CACHE_SOURCE_OPERATOR`: be/src/exec/operator/cache_source_operator.h:73
+- `DISTINCT_STREAMING_AGGREGATION_OPERATOR`: be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:333
+- `ExchangeSinkOperatorX`: be/src/exec/operator/exchange_sink_operator.cpp:326
+- `LOCAL_EXCHANGE_OPERATOR(`: be/src/exec/exchange/local_exchange_source_operator.h:70
+- `LOCAL_EXCHANGE_SINK_OPERATOR(`: be/src/exec/exchange/local_exchange_sink_operator.cpp:43
+- `LOCAL_MERGE_SORT_SOURCE_OPERATOR`: be/src/exec/operator/local_merge_sort_source_operator.cpp:97
+- `MULTI_CAST_DATA_STREAM_SOURCE_OPERATOR`: be/src/exec/operator/multi_cast_data_stream_source.h:85
+- `PARTITIONED_AGGREGATION_OPERATOR`: be/src/exec/operator/partitioned_aggregation_source_operator.cpp:137
+- `PARTITIONED_AGGREGATION_SINK_OPERATOR`: be/src/exec/operator/partitioned_aggregation_sink_operator.cpp:138
+- `PARTITIONED_HASH_JOIN_PROBE_OPERATOR`: be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:551
+- `PARTITIONED_HASH_JOIN_SINK_OPERATOR`: be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:422
+- `REC_CTE_ANCHOR_SINK_OPERATOR`: be/src/exec/operator/rec_cte_anchor_sink_operator.cpp:43
+- `ResultSink`: be/src/exec/operator/result_sink_operator.cpp:110
+- `SET_PROBE_SINK_OPERATOR`: be/src/exec/operator/set_probe_sink_operator.cpp:38
+- `SET_SINK_OPERATOR`: be/src/exec/operator/set_sink_operator.cpp:247
+- `SPILL_ICEBERG_TABLE_SINK_OPERATOR`: be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:110
+- `SPILL_SORT_SINK_OPERATOR`: be/src/exec/operator/spill_sort_sink_operator.cpp:122
+- `SPILL_SORT_SOURCE_OPERATOR`: be/src/exec/operator/spill_sort_source_operator.cpp:220
+- `STREAMING_AGGREGATION_OPERATOR`: be/src/exec/operator/streaming_aggregation_operator.cpp:997
+- `ann_topn_runtime`: be/src/storage/index/ann/ann_topn_runtime.h:164
+
+## Operator Classes In Factory
+- `AggSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1465
+- `AggSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1444
+- `AnalyticSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1701
+- `AnalyticSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1691
+- `AssertNumRowsOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1733
+- `BucketedAggSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1493
+- `BucketedAggSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1481
+- `CacheSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1368
+- `DataGenSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1743
+- `DictSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1090
+- `DistinctStreamingAggOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1407, be/src/exec/pipeline/pipeline_fragment_context.cpp:1413
+- `EmptySetSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1738
+- `ExchangeSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1068, be/src/exec/pipeline/pipeline_fragment_context.cpp:1241
+- `ExchangeSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1351
+- `FileScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1340
+- `GroupCommitBlockSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1113
+- `GroupCommitOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1320
+- `HashJoinBuildSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1533, be/src/exec/pipeline/pipeline_fragment_context.cpp:1553, be/src/exec/pipeline/pipeline_fragment_context.cpp:1576
+- `HashJoinProbeOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1528, be/src/exec/pipeline/pipeline_fragment_context.cpp:1566
+- `HiveTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1121
+- `IcebergDeleteSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1142
+- `IcebergMergeSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1150
+- `IcebergTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1133
+- `JDBCScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1328
+- `JdbcTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1167
+- `LocalExchangeSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:809
+- `LocalExchangeSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:905
+- `LocalMergeSortSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1648
+- `MCTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1158
+- `MemoryScratchSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1181
+- `MetaScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1754
+- `MultiCastDataStreamSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1214
+- `MultiCastDataStreamerSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1232
+- `NestedLoopJoinBuildSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1611
+- `NestedLoopJoinProbeOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1601
+- `OlapScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1310
+- `OlapTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1104
+- `OlapTableSinkV2OperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1101
+- `PartitionSortSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1684
+- `PartitionSortSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1674
+- `PartitionedAggSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1462
+- `PartitionedAggSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1441
+- `PartitionedHashJoinProbeOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1538
+- `PartitionedHashJoinSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1554
+- `RecCTEAnchorSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1776
+- `RecCTEScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1795
+- `RecCTESinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1786
+- `RecCTESourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1764
+- `RepeatOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1723
+- `ResultFileSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1192, be/src/exec/pipeline/pipeline_fragment_context.cpp:1196
+- `ResultSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1080
+- `SchemaScanOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1749
+- `SelectOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1759
+- `SortSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1666
+- `SortSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1651
+- `SpillIcebergTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1130
+- `SpillSortSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1663
+- `SpillSortSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1646
+- `StreamingAggOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1422, be/src/exec/pipeline/pipeline_fragment_context.cpp:1428
+- `TVFTableSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1273
+- `TableFunctionOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1728
+- `UnionSinkOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1631
+- `UnionSourceOperatorX`: be/src/exec/pipeline/pipeline_fragment_context.cpp:1621
+
+## Counter And Info Names
+- `AdaptiveBatchPredictMaxRows` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:410
+- `AdaptiveBatchPredictMinRows` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:408
+- `AddPartitionRequestTime` (2 registrations): be/src/exec/operator/exchange_sink_operator.cpp:72, be/src/exec/sink/writer/vtablet_writer.cpp:1604
+- `AddPartitionRequestTimeList` (1 registrations): be/src/exec/sink/vrow_distribution.h:121
+- `AddTablet` (2 registrations): be/src/storage/tablet/tablet_manager.cpp:97, be/src/storage/tablet/tablet_manager.cpp:407
+- `AnnIndexCacheHitCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:347
+- `AnnIndexFallbackBruteForceCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:390
+- `AnnIndexLoadCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:357
+- `AnnIndexRangeCacheHitCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:349
+- `AnnIndexRangeEngineConvertCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:380
+- `AnnIndexRangeResultConvertCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:387
+- `AnnIndexRangeSearchCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:351
+- `AnnIndexRangeSearchCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:350
+- `AnnIndexRangeSearchFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:342
+- `AnnIndexTopNEngineConvertCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:377
+- `AnnIndexTopNFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:343
+- `AnnIndexTopNResultConvertCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:384
+- `AnnIndexTopNSearchCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:346
+- `AnnIndexTopNSearchCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:345
+- `AnnIvfOnDiskCacheHitCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:360
+- `AnnIvfOnDiskCacheMissCnt` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:362
+- `AnnIvfOnDiskLoadCosts` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:358
+- `AppendBatchTime` (3 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.cpp:159, be/src/exec/sink/writer/vfile_result_writer.cpp:110, be/src/exec/sink/writer/vmysql_result_writer.cpp:119
+- `AppendBlockTime` (1 registrations): be/src/exec/operator/sort_sink_operator.cpp:37
+- `AppendBlocksTime` (1 registrations): be/src/exec/operator/group_commit_block_sink_operator.cpp:248
+- `AppendNodeChannelTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1602
+- `ApplyAllRuntimeFilters` (1 registrations): be/src/exec/scan/file_scanner.cpp:494
+- `AsofIndexExprTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:103
+- `AsofIndexGroupTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:107
+- `AsofIndexSortTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:105
+- `AsofProbeExprTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:73
+- `BatchSplitMode` (1 registrations): be/src/exec/operator/file_scan_operator.cpp:151
+- `BlockFetchTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:140
+- `BlockInitSeekCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:183
+- `BlockInitSeekTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:182
+- `BlockInitTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:181
+- `BlockLoadTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:138
+- `BlockedByDependency` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:1110
+- `BlocksLoad` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:139
+- `BlocksProduced` (3 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:417, be/src/exec/operator/exchange_sink_operator.cpp:74, be/src/exec/operator/operator.cpp:592
+- `BloomFilterIndexReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:363
+- `BloomFilterIndexReaderNum` (1 registrations): be/src/storage/metadata_adder.h:365
+- `BroadcastJoin` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:66
+- `BuildExprCallTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:97
+- `BuildHashTableTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:94
+- `BuildOutputBlock` (1 registrations): be/src/exec/operator/join_probe_operator.cpp:34
+- `BuildPipelinesTime` (1 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:344
+- `BuildRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:74
+- `BuildRowsetTime` (1 registrations): be/src/storage/rowset_builder.cpp:95
+- `BuildShareHashTable` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:70
+- `BuildTableInsertTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:96
+- `BuildTasksTime` (1 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:347
+- `BuildTime` (6 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:68, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:52, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:49, be/src/exec/operator/set_sink_operator.cpp:205, be/src/exec/operator/streaming_aggregation_operator.cpp:57, be/src/exec/operator/streaming_aggregation_operator.cpp:70
+- `BytesProcessed` (1 registrations): be/src/exec/operator/blackhole_sink_operator.cpp:86
+- `BytesSent` (3 registrations): be/src/exec/operator/exchange_sink_operator.cpp:60, be/src/exec/sink/writer/varrow_flight_result_writer.cpp:162, be/src/exec/sink/writer/vmysql_result_writer.cpp:124
+- `BytesWriteIntoCache` (1 registrations): be/src/runtime/workload_management/io_context.h:64
+- `CacheTabletId` (1 registrations): be/src/exec/operator/cache_source_operator.cpp:71
+- `CachedPagesNum` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:237
+- `CloseLoadTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer_v2.cpp:246
+- `CloseTime` (8 registrations): be/src/exec/operator/operator.cpp:602, be/src/exec/operator/operator.cpp:707, be/src/exec/pipeline/pipeline_task.cpp:246, be/src/exec/sink/viceberg_delete_sink.cpp:196, be/src/exec/sink/viceberg_merge_sink.cpp:70, be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:72, be/src/exec/sink/writer/maxcompute/vmc_table_writer.cpp:52, be/src/exec/sink/writer/vhive_table_writer.cpp:58
+- `CloseWaitTime` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1607, be/src/exec/sink/writer/vtablet_writer_v2.cpp:244
+- `CloseWriterTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer_v2.cpp:245
+- `CollectIteratorMergeTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:190
+- `ColumnReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:356
+- `ColumnReaderNum` (1 registrations): be/src/storage/metadata_adder.h:358
+- `CommitTxnTime` (1 registrations): be/src/storage/rowset_builder.cpp:103
+- `CompressTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:65
+- `CompressedBytes` (1 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.h:69
+- `CompressedBytesRead` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:135
+- `ComputeAggDataTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:38
+- `ComputeHashValueTime` (1 registrations): be/src/exec/exchange/local_exchange_sink_operator.cpp:89
+- `ComputeOrderByTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:40
+- `ComputePartitionByTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:39
+- `ComputeRangeBetweenTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:41
+- `ConditionCacheFilteredRows` (1 registrations): be/src/exec/operator/scan_operator.cpp:1081
+- `ConditionCacheHit` (1 registrations): be/src/exec/operator/scan_operator.cpp:1079
+- `ConvertBlockToArrowBatchTime` (1 registrations): be/src/exec/operator/memory_scratch_sink_operator.cpp:37
+- `CopyDataTime` (1 registrations): be/src/exec/exchange/local_exchange_source_operator.cpp:36
+- `CoreChangeTimes` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:252
+- `CostTime` (1 registrations): be/src/runtime/memory/cache_policy.h:183
+- `CreateMergerTime` (1 registrations): be/src/exec/operator/exchange_source_operator.cpp:94
+- `CreateMeta` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:359
+- `CreateMetaUnlock` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:471
+- `CreateTabletFromMeta` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:519
+- `CurrentMemoryBytes` (1 registrations): be/src/runtime/workload_management/memory_context.h:59
+- `DataArrivalWaitTime` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:412
+- `DecompressBytes` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:416
+- `DecompressTime` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:415
+- `DecompressorTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:234
+- `DeleteBitmapGetAggTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:301
+- `DeleteBitmapSubmitTime` (1 registrations): be/src/storage/rowset_builder.cpp:96
+- `DeleteBitmapWaitTime` (1 registrations): be/src/storage/rowset_builder.cpp:97
+- `DeleteFileCount` (1 registrations): be/src/exec/sink/viceberg_delete_sink.cpp:194
+- `DeleteRows` (1 registrations): be/src/exec/sink/viceberg_merge_sink.cpp:67
+- `DeserializeAndMergeTime` (3 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:71, be/src/exec/operator/aggregation_source_operator.cpp:45, be/src/exec/operator/streaming_aggregation_operator.cpp:61
+- `DeserializeRowBatchTimer` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:411
+- `DistributeDataTime` (1 registrations): be/src/exec/exchange/local_exchange_sink_operator.cpp:90
+- `DistributeRowsIntoChannelsTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:69
+- `DoLimitComputeTime` (1 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:73
+- `DropOldTablet` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:216
+- `DropTablet` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:433
+- `EOS` (1 registrations): be/src/exec/operator/scan_operator.cpp:1333
+- `EmplaceKeyTime` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:54
+- `EmptyFileNum` (1 registrations): be/src/exec/scan/file_scanner.cpp:168
+- `EvaluateInputDataTime` (1 registrations): be/src/exec/operator/repeat_operator.cpp:53
+- `EvaluationTime` (2 registrations): be/src/exec/operator/analytic_sink_operator.cpp:37, be/src/exec/operator/memory_scratch_sink_operator.cpp:38
+- `ExecOption` (1 registrations): be/src/runtime/runtime_profile.h:643
+- `ExecTime` (2 registrations): be/src/exec/operator/operator.cpp:603, be/src/exec/operator/operator.cpp:708
+- `ExecTime_` (1 registrations): be/src/storage/index/inverted/inverted_index_profile.h:55
+- `ExprFilterEvalTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:209
+- `ExprTime` (5 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:70, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:53, be/src/exec/operator/streaming_aggregation_operator.cpp:59, be/src/exec/operator/streaming_aggregation_operator.cpp:71, be/src/exec/operator/union_sink_operator.cpp:36
+- `ExtractProbeDataTime` (1 registrations): be/src/exec/operator/set_probe_sink_operator.cpp:107
+- `FetchRowIdTime` (1 registrations): be/src/exec/operator/result_sink_operator.cpp:43
+- `FileNumber` (1 registrations): be/src/exec/scan/file_scanner.cpp:174
+- `FileScannerGetBlockTime` (1 registrations): be/src/exec/scan/file_scanner.cpp:156
+- `FileScannerPreFilterTimer` (1 registrations): be/src/exec/scan/file_scanner.cpp:162
+- `FileWriteTime` (2 registrations): be/src/exec/sink/writer/vfile_result_writer.cpp:112, be/src/exec/sink/writer/vtvf_table_writer.cpp:45
+- `FileWriterCloseTime` (2 registrations): be/src/exec/sink/writer/vfile_result_writer.cpp:113, be/src/exec/sink/writer/vtvf_table_writer.cpp:46
+- `FilterCostTime` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:61
+- `FilterTime` (7 registrations): be/src/exec/operator/datagen_operator.cpp:89, be/src/exec/operator/exchange_source_operator.cpp:93, be/src/exec/operator/multi_cast_data_stream_source.cpp:41, be/src/exec/operator/repeat_operator.cpp:55, be/src/exec/operator/set_source_operator.cpp:34, be/src/exec/operator/table_function_operator.cpp:53, be/src/exec/sink/writer/vtablet_writer.cpp:1600
+- `FilteredByJoinConjunctsTime` (1 registrations): be/src/exec/operator/nested_loop_join_probe_operator.cpp:106
+- `FilteredRows` (1 registrations): be/src/exec/operator/analytic_source_operator.cpp:37
+- `FindPartitionTime` (1 registrations): be/src/exec/operator/group_commit_block_sink_operator.cpp:247
+- `FinishProbePhaseTime` (1 registrations): be/src/exec/operator/join_probe_operator.cpp:39
+- `FirstBatchArrivalWaitTime` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:414
+- `FollowedByShuffledOperator` (2 registrations): be/src/exec/operator/operator.cpp:609, be/src/exec/operator/operator.cpp:714
+- `FreedEntrys` (1 registrations): be/src/runtime/memory/cache_policy.h:182
+- `FreedMemory` (2 registrations): be/src/runtime/memory/cache_policy.h:181, be/src/runtime/memory/memory_reclamation.cpp:60
+- `GenerateRowRangeByBloomFilterIndexTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:189
+- `GenerateRowRangeByColumnConditionsTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:187
+- `GenerateRowRangeByDictTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:194
+- `GenerateRowRangeByKeysTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:185
+- `GenerateRowRangeByZoneMapIndexTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:192
+- `GetArrowSchemaTime` (1 registrations): be/src/exec/operator/memory_scratch_sink_operator.cpp:35
+- `GetBaseTablet` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:301
+- `GetBaseTabletUnlocked` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:305
+- `GetBlockCounter` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:244
+- `GetBlockFailedTime` (1 registrations): be/src/exec/exchange/local_exchange_source_operator.cpp:33
+- `GetBlockTime` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:243
+- `GetChildNextTime` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:82
+- `GetDataFromHashTableRows` (1 registrations): be/src/exec/operator/set_source_operator.cpp:36
+- `GetDataFromRecvrTime` (1 registrations): be/src/exec/operator/exchange_source_operator.cpp:92
+- `GetDataTime` (2 registrations): be/src/exec/operator/multi_cast_data_stream_source.cpp:42, be/src/exec/operator/set_source_operator.cpp:33
+- `GetExistTabletVersion` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:154
+- `GetNextTime` (1 registrations): be/src/exec/operator/analytic_source_operator.cpp:36
+- `GetRepeatDataTime` (1 registrations): be/src/exec/operator/repeat_operator.cpp:54
+- `GetResultsTime` (3 registrations): be/src/exec/operator/aggregation_source_operator.cpp:39, be/src/exec/operator/bucketed_aggregation_source_operator.cpp:155, be/src/exec/operator/streaming_aggregation_operator.cpp:72
+- `GetShardLock` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:279
+- `GetSortedTime` (1 registrations): be/src/exec/operator/partition_sort_source_operator.cpp:29
+- `GetSplitTime` (1 registrations): be/src/exec/operator/file_scan_operator.cpp:153
+- `GetStores` (1 registrations): be/src/storage/storage_engine.cpp:1419
+- `GetTablet` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:419
+- `GetTabletUnlocked` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:289
+- `GetTwoTableLock` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:271
+- `HashTableBuildTime` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:52
+- `HashTableComputeTime` (6 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:72, be/src/exec/operator/aggregation_source_operator.cpp:46, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:54, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:50, be/src/exec/operator/rec_cte_source_operator.cpp:50, be/src/exec/operator/streaming_aggregation_operator.cpp:62
+- `HashTableEmplaceTime` (6 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:74, be/src/exec/operator/aggregation_source_operator.cpp:47, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:55, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:51, be/src/exec/operator/rec_cte_source_operator.cpp:52, be/src/exec/operator/streaming_aggregation_operator.cpp:65
+- `HashTableInputCount` (6 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:76, be/src/exec/operator/aggregation_source_operator.cpp:49, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:57, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:53, be/src/exec/operator/rec_cte_source_operator.cpp:54, be/src/exec/operator/streaming_aggregation_operator.cpp:67
+- `HashTableIterateTime` (3 registrations): be/src/exec/operator/aggregation_source_operator.cpp:40, be/src/exec/operator/bucketed_aggregation_source_operator.cpp:156, be/src/exec/operator/streaming_aggregation_operator.cpp:73
+- `HashTableLimitComputeTime` (1 registrations): be/src/exec/operator/streaming_aggregation_operator.cpp:64
+- `HashTableSize` (8 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:62, be/src/exec/operator/aggregation_source_operator.cpp:53, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:48, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:54, be/src/exec/operator/partition_sort_sink_operator.cpp:47, be/src/exec/operator/set_probe_sink_operator.cpp:108, be/src/exec/operator/set_sink_operator.cpp:206, be/src/exec/operator/streaming_aggregation_operator.cpp:68
+- `HitCache` (1 registrations): be/src/exec/operator/cache_source_operator.cpp:77
+- `HitRows_` (1 registrations): be/src/storage/index/inverted/inverted_index_profile.h:50
+- `IOTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:233
+- `IcebergDoSpillCount` (1 registrations): be/src/exec/sink/writer/iceberg/viceberg_sort_writer.cpp:50
+- `IndexPageReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:371
+- `IndexPageReaderNum` (1 registrations): be/src/storage/metadata_adder.h:373
+- `IndexedColumnReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:378
+- `IndexedColumnReaderNum` (1 registrations): be/src/storage/metadata_adder.h:380
+- `InitContextTime` (1 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:345
+- `InitLoadQueueTime` (1 registrations): be/src/exec/operator/group_commit_block_sink_operator.cpp:245
+- `InitProbeSideTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:68
+- `InitRowset` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:392
+- `InitTableFunctionTime` (1 registrations): be/src/exec/operator/table_function_operator.cpp:51
+- `InitTime` (2 registrations): be/src/exec/operator/operator.cpp:600, be/src/exec/operator/operator.cpp:705
+- `InputRows` (1 registrations): be/src/exec/operator/operator.cpp:704
+- `InsertKeysToColumnTime` (4 registrations): be/src/exec/operator/aggregation_source_operator.cpp:41, be/src/exec/operator/bucketed_aggregation_source_operator.cpp:157, be/src/exec/operator/distinct_streaming_aggregation_operator.cpp:55, be/src/exec/operator/streaming_aggregation_operator.cpp:74
+- `InsertRows` (1 registrations): be/src/exec/sink/viceberg_merge_sink.cpp:66
+- `InsertValuesToColumnTime` (3 registrations): be/src/exec/operator/aggregation_source_operator.cpp:42, be/src/exec/operator/bucketed_aggregation_source_operator.cpp:158, be/src/exec/operator/streaming_aggregation_operator.cpp:60
+- `InstanceID` (1 registrations): be/src/exec/operator/exchange_source_operator.cpp:95
+- `InvertedIndexAnalyzerTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:269
+- `InvertedIndexDowngradeCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:267
+- `InvertedIndexFilterTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:243
+- `InvertedIndexLookupTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:271
+- `InvertedIndexQueryBitmapCopyTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:253
+- `InvertedIndexQueryCacheHit` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:245
+- `InvertedIndexQueryCacheMiss` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:247
+- `InvertedIndexQueryNullBitmapTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:251
+- `InvertedIndexQueryTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:249
+- `InvertedIndexReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:386
+- `InvertedIndexReaderNum` (1 registrations): be/src/storage/metadata_adder.h:388
+- `InvertedIndexSearcherOpenTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:255
+- `InvertedIndexSearcherSearchExecTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:261
+- `InvertedIndexSearcherSearchInitTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:259
+- `InvertedIndexSearcherSearchTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:257
+- `IsColocate` (2 registrations): be/src/exec/operator/operator.cpp:606, be/src/exec/operator/operator.cpp:711
+- `IsShuffled` (2 registrations): be/src/exec/operator/operator.cpp:608, be/src/exec/operator/operator.cpp:713
+- `JdbcDriverClass` (1 registrations): be/src/exec/scan/jdbc_scanner.cpp:104
+- `JdbcDriverUrl` (1 registrations): be/src/exec/scan/jdbc_scanner.cpp:106
+- `JdbcUrl` (1 registrations): be/src/exec/scan/jdbc_scanner.cpp:108
+- `JoinConjunctsEvaluationTime` (1 registrations): be/src/exec/operator/nested_loop_join_probe_operator.cpp:105
+- `JoinFilterTimer` (1 registrations): be/src/exec/operator/join_probe_operator.cpp:33
+- `KeepWaitCancellingTasksNum` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:58
+- `KeyRanges` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:1163
+- `KeyRangesNum` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:277
+- `LazyReadSeekCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:218
+- `LazyReadSeekTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:217
+- `LazyReadTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:216
+- `Limit` (1 registrations): be/src/runtime/memory/mem_tracker_limiter.cpp:211
+- `LoadBackPressureVersionTimeMs` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1619, be/src/exec/sink/writer/vtablet_writer_v2.cpp:248
+- `LocalBytesReceived` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:409
+- `LocalBytesSent` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:83
+- `LocalSendTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:66
+- `LocalSentRows` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:63
+- `LoopGenerateJoin` (1 registrations): be/src/exec/operator/nested_loop_join_probe_operator.cpp:102
+- `MaterializeDataTime` (1 registrations): be/src/exec/operator/multi_cast_data_stream_source.cpp:43
+- `MaxAddBatchExecTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1614
+- `MaxFindRecvrTime(NS)` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:420
+- `MaxPeakMemoryBytes` (1 registrations): be/src/runtime/workload_management/memory_context.h:62
+- `MaxRowsPerBackend` (1 registrations): be/src/exec/operator/materialization_opertor.h:86
+- `MaxRpcTime` (1 registrations): be/src/exec/operator/materialization_opertor.h:83
+- `MaxScanConcurrency` (1 registrations): be/src/exec/operator/scan_operator.cpp:1072
+- `MaxWaitExecTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1616
+- `MaxWaitForWorkerTime` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:418
+- `MaxWaitToProcessTime` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:419
+- `MemoryReserveFailedTimes` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:255
+- `MemoryReserveTimes` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:253
+- `MemoryUsageArena` (3 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:79, be/src/exec/operator/aggregation_source_operator.cpp:56, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:58
+- `MemoryUsageBuildBlocks` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:86
+- `MemoryUsageBuildKeyArena` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:90
+- `MemoryUsageContainer` (2 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:78, be/src/exec/operator/aggregation_source_operator.cpp:55
+- `MemoryUsageHashTable` (6 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:64, be/src/exec/operator/aggregation_source_operator.cpp:51, be/src/exec/operator/bucketed_aggregation_sink_operator.cpp:50, be/src/exec/operator/hashjoin_build_sink.cpp:88, be/src/exec/operator/partition_sort_sink_operator.cpp:51, be/src/exec/operator/streaming_aggregation_operator.cpp:53
+- `MemoryUsageReserved` (3 registrations): be/src/exec/operator/partitioned_aggregation_sink_operator.cpp:102, be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:87, be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:58
+- `MemoryUsageSortBlocks` (1 registrations): be/src/exec/operator/sort_sink_operator.cpp:36
+- `MergeBlockTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:82
+- `MergeBlocksTime` (1 registrations): be/src/exec/operator/set_sink_operator.cpp:204
+- `MergeBuildBlockTime` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:95
+- `MergeResponseTime` (1 registrations): be/src/exec/operator/materialization_opertor.h:84
+- `MergeTime` (4 registrations): be/src/exec/operator/aggregation_sink_operator.cpp:69, be/src/exec/operator/aggregation_source_operator.cpp:44, be/src/exec/operator/bucketed_aggregation_source_operator.cpp:159, be/src/exec/operator/streaming_aggregation_operator.cpp:58
+- `MinScanConcurrency` (1 registrations): be/src/exec/operator/scan_operator.cpp:1074
+- `NewlyCreateFreeBlocksNum` (1 registrations): be/src/exec/operator/scan_operator.cpp:1063
+- `NonBlockingSendTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1608
+- `NonBlockingSendWorkTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1610
+- `NonEqualJoinConjunctEvaluationTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:67
+- `NonPredicateColumnReadTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:211
+- `NumScanners` (1 registrations): be/src/exec/operator/scan_operator.cpp:1055
+- `NumScheduleTimes` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:250
+- `NumSegmentFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:274
+- `NumSegmentTotal` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:275
+- `NumSentRows` (2 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.cpp:161, be/src/exec/sink/writer/vmysql_result_writer.cpp:123
+- `NumWrittenRows` (2 registrations): be/src/exec/sink/writer/vfile_result_writer.cpp:114, be/src/exec/sink/writer/vtvf_table_writer.cpp:43
+- `NumYieldTimes` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:251
+- `NumberBatchAdded` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1617
+- `NumberNodeChannels` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1618
+- `OpenTime` (9 registrations): be/src/exec/operator/operator.cpp:601, be/src/exec/operator/operator.cpp:706, be/src/exec/pipeline/pipeline_task.cpp:242, be/src/exec/sink/viceberg_delete_sink.cpp:195, be/src/exec/sink/viceberg_merge_sink.cpp:69, be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:71, be/src/exec/sink/writer/vhive_table_writer.cpp:57, be/src/exec/sink/writer/vtablet_writer.cpp:1606
+- `OrderSearchTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:43
+- `OrdinalIndexReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:394
+- `OrdinalIndexReaderNum` (1 registrations): be/src/storage/metadata_adder.h:396
+- `OutputBlockBytes` (1 registrations): be/src/exec/operator/operator.cpp:594
+- `OutputColumnTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:220
+- `OutputIndexResultColumnTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:273
+- `OutputTempBlocksTime` (1 registrations): be/src/exec/operator/nested_loop_join_probe_operator.cpp:103
+- `PartitionSearchTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:42
+- `PartitionTopNLimit` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:65
+- `PartitionTopNPhase` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:64
+- `Partitioner` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:189
+- `PartitionsDispatchTime` (2 registrations): be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:67, be/src/exec/sink/writer/vhive_table_writer.cpp:53
+- `PartitionsWriteCount` (3 registrations): be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:70, be/src/exec/sink/writer/maxcompute/vmc_table_writer.cpp:53, be/src/exec/sink/writer/vhive_table_writer.cpp:56
+- `PartitionsWriteTime` (2 registrations): be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:69, be/src/exec/sink/writer/vhive_table_writer.cpp:55
+- `PassThroughRowsCounter` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:57
+- `PeakMemUsage` (1 registrations): be/src/exec/operator/multi_cast_data_streamer.h:69
+- `PeakMemoryBytes` (1 registrations): be/src/runtime/workload_management/memory_context.h:60
+- `PendingFinishDependency` (1 registrations): be/src/exec/operator/operator.cpp:673
+- `PerScannerOpenTime` (1 registrations): be/src/exec/scan/scanner_context.cpp:521
+- `PerScannerPrepareTime` (1 registrations): be/src/exec/scan/scanner_context.cpp:520
+- `PerScannerProjectionTime` (1 registrations): be/src/exec/scan/scanner_context.cpp:519
+- `PerScannerRowsRead` (1 registrations): be/src/exec/scan/scanner_context.cpp:517
+- `PerScannerRunningTime` (1 registrations): be/src/exec/scan/scanner_context.cpp:516
+- `PerScannerWaitTime` (1 registrations): be/src/exec/scan/scanner_context.cpp:518
+- `PlanLocalLocalExchangerTime` (1 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:346
+- `PredicateColumnReadSeekCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:214
+- `PredicateColumnReadSeekTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:212
+- `PredicateColumnReadTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:210
+- `PrepareAllPipelinesTime` (1 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:348
+- `PrepareTime` (2 registrations): be/src/exec/pipeline/pipeline_fragment_context.cpp:342, be/src/exec/pipeline/pipeline_task.cpp:241
+- `ProbeBlocksBytesInMem` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:85
+- `ProbeExprCallTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:62
+- `ProbeIntermediateRows` (1 registrations): be/src/exec/operator/join_probe_operator.cpp:38
+- `ProbeRows` (1 registrations): be/src/exec/operator/join_probe_operator.cpp:36
+- `ProbeTime` (1 registrations): be/src/exec/operator/set_probe_sink_operator.cpp:106
+- `ProbeWhenBuildSideOutputTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:64
+- `ProbeWhenProbeSideOutputTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:65
+- `ProbeWhenSearchHashTableTime` (1 registrations): be/src/exec/operator/hashjoin_probe_operator.cpp:63
+- `ProcessConjunctTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:134
+- `ProcessRows` (2 registrations): be/src/exec/operator/multi_cast_data_streamer.h:70, be/src/runtime/workload_management/io_context.h:66
+- `ProcessRowsTime` (1 registrations): be/src/exec/operator/table_function_operator.cpp:52
+- `ProjectionTime` (1 registrations): be/src/exec/operator/operator.cpp:599
+- `PruneAllNumber` (1 registrations): be/src/runtime/memory/cache_policy.h:178
+- `PruneStaleNumber` (1 registrations): be/src/runtime/memory/cache_policy.h:177
+- `PushDownAggregate` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:1158
+- `PushDownPredicates` (1 registrations): be/src/exec/operator/scan_operator.cpp:211
+- `QuerySql` (1 registrations): be/src/exec/scan/jdbc_scanner.cpp:109
+- `ReadColumns` (1 registrations): be/src/exec/scan/olap_scanner.cpp:247
+- `ReaderInitTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:132
+- `RegisterTabletInfo` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:231
+- `RemainedPredicates` (1 registrations): be/src/exec/operator/scan_operator.cpp:338
+- `RemoteBytesReceived` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:408
+- `RemoveCount` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:46
+- `RemovePendingIds` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:464
+- `RemoveRows` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:45
+- `RemoveRowsTime` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:44
+- `RemoveTabletFiles` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:441
+- `RequestRevokeTasksNum` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:50
+- `ResultSendTime` (2 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.cpp:160, be/src/exec/sink/writer/vmysql_result_writer.cpp:122
+- `ReturnedRows` (1 registrations): be/src/runtime/workload_management/io_context.h:65
+- `RevocableTasksNum` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:52
+- `RevokeAttempts` (1 registrations): be/src/runtime/workload_management/memory_context.h:63
+- `RevokeWaitTimeMs` (2 registrations): be/src/runtime/workload_management/cpu_context.h:43, be/src/runtime/workload_management/memory_context.h:65
+- `RevokedBytes` (1 registrations): be/src/runtime/workload_management/memory_context.h:66
+- `RowDistributionTime` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1599, be/src/exec/sink/writer/vtablet_writer_v2.cpp:237
+- `RowsBloomFilterFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:225
+- `RowsConditionsFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:229
+- `RowsDelFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:227
+- `RowsExprPredFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:201
+- `RowsExprPredInput` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:206
+- `RowsFiltered` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1596, be/src/exec/sink/writer/vtablet_writer_v2.cpp:232
+- `RowsInvertedIndexFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:241
+- `RowsKeyRangeFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:231
+- `RowsProcessed` (1 registrations): be/src/exec/operator/blackhole_sink_operator.cpp:85
+- `RowsProduced` (3 registrations): be/src/exec/operator/operator.cpp:590, be/src/exec/sink/writer/vtablet_writer.cpp:1595, be/src/exec/sink/writer/vtablet_writer_v2.cpp:231
+- `RowsRead` (3 registrations): be/src/exec/operator/scan_operator.cpp:1054, be/src/exec/sink/writer/vtablet_writer.cpp:1594, be/src/exec/sink/writer/vtablet_writer_v2.cpp:230
+- `RowsShortCircuitPredFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:199
+- `RowsShortCircuitPredInput` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:205
+- `RowsStatsFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:222
+- `RowsVectorPredFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:197
+- `RowsVectorPredInput` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:203
+- `RowsWritten` (2 registrations): be/src/exec/sink/viceberg_delete_sink.cpp:191, be/src/exec/sink/viceberg_merge_sink.cpp:65
+- `RowsZoneMapRuntimePredicateFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:224
+- `RowsetMemBytes` (1 registrations): be/src/storage/metadata_adder.h:314
+- `RowsetMetaMemBytes` (1 registrations): be/src/storage/metadata_adder.h:307
+- `RowsetMetaNum` (1 registrations): be/src/storage/metadata_adder.h:309
+- `RowsetNum` (1 registrations): be/src/storage/metadata_adder.h:316
+- `RowsetReaderCreateIteratorsTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:304
+- `RpcAvgTime` (1 registrations): be/src/exec/operator/exchange_sink_buffer.cpp:638
+- `RpcCount` (1 registrations): be/src/exec/operator/exchange_sink_buffer.cpp:637
+- `RpcMaxTime` (1 registrations): be/src/exec/operator/exchange_sink_buffer.cpp:634
+- `RpcMinTime` (1 registrations): be/src/exec/operator/exchange_sink_buffer.cpp:635
+- `RpcSumTime` (1 registrations): be/src/exec/operator/exchange_sink_buffer.cpp:636
+- `SaveMeta` (2 registrations): be/src/storage/tablet/tablet_manager.cpp:176, be/src/storage/tablet/tablet_manager.cpp:208
+- `ScanBytes` (2 registrations): be/src/exec/operator/scan_operator.cpp:1088, be/src/runtime/workload_management/io_context.h:58
+- `ScanBytesFromLocalStorage` (1 registrations): be/src/runtime/workload_management/io_context.h:60
+- `ScanBytesFromRemoteStorage` (1 registrations): be/src/runtime/workload_management/io_context.h:62
+- `ScanRows` (3 registrations): be/src/exec/operator/olap_scan_operator.cpp:125, be/src/exec/operator/scan_operator.cpp:1085, be/src/runtime/workload_management/io_context.h:57
+- `Scanner` (4 registrations): be/src/exec/operator/scan_operator.cpp:1064, be/src/exec/operator/scan_operator.cpp:1065, be/src/exec/operator/scan_operator.cpp:1066, be/src/exec/operator/scan_operator.cpp:1069
+- `ScannerInitTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:133
+- `SegmentDictFiltered` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:226
+- `SegmentIteratorInitReturnColumnIteratorsTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:314
+- `SegmentIteratorInitSegmentPrefetchersTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:319
+- `SegmentIteratorInitTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:312
+- `SegmentLoadIndexTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:328
+- `SegmentMemBytes` (1 registrations): be/src/storage/metadata_adder.h:349
+- `SegmentNum` (1 registrations): be/src/storage/metadata_adder.h:351
+- `SelectorBlockTime` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:53
+- `SendDataTime` (7 registrations): be/src/exec/sink/viceberg_delete_sink.cpp:192, be/src/exec/sink/viceberg_merge_sink.cpp:68, be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:65, be/src/exec/sink/writer/maxcompute/vmc_table_writer.cpp:51, be/src/exec/sink/writer/vhive_table_writer.cpp:51, be/src/exec/sink/writer/vtablet_writer.cpp:1597, be/src/exec/sink/writer/vtablet_writer_v2.cpp:233
+- `SendNewPartitionTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:70
+- `SendersBlockedTotalTimer(*)` (1 registrations): be/src/exec/exchange/vdata_stream_recvr.cpp:413
+- `SerializeBatchNsTime` (1 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.h:67
+- `SerializeBatchTime` (2 registrations): be/src/exec/operator/exchange_sink_operator.cpp:64, be/src/exec/sink/writer/vtablet_writer.cpp:1612
+- `SetCapacityNumber` (1 registrations): be/src/runtime/memory/cache_policy.h:180
+- `ShareHashTableEnabled` (1 registrations): be/src/exec/operator/hashjoin_build_sink.cpp:72
+- `ShortPredEvalTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:208
+- `ShuffleSendBytes` (1 registrations): be/src/runtime/workload_management/io_context.h:67
+- `ShuffleSendRowsCounter_` (1 registrations): be/src/runtime/workload_management/io_context.h:69
+- `SinkTime` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:245
+- `SkipCancellingTasksNum` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:56
+- `SortedDataTime` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:55
+- `SortedPartitionInputRows` (1 registrations): be/src/exec/operator/partition_sort_sink_operator.cpp:59
+- `SortedPartitionOutputRows` (1 registrations): be/src/exec/operator/partition_sort_source_operator.cpp:31
+- `SpillBuildBlocks` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:76
+- `SpillBuildRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:67
+- `SpillBuildTime` (2 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:68, be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:54
+- `SpillInMemRow` (1 registrations): be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:56
+- `SpillMaxPartitionLevel` (2 registrations): be/src/exec/operator/partitioned_aggregation_source_operator.cpp:49, be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:90
+- `SpillMergeSortTime` (2 registrations): be/src/exec/operator/spill_sort_sink_operator.cpp:53, be/src/exec/operator/spill_sort_source_operator.cpp:46
+- `SpillProbeBlocks` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:78
+- `SpillProbeRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:73
+- `SpillProbeTime` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:79
+- `SpillRePartitionTime` (2 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:66, be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:53
+- `SpillReadBlockBytes` (2 registrations): be/src/exec/operator/spill_counters.h:85, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:167
+- `SpillReadBlockCount` (2 registrations): be/src/exec/operator/spill_counters.h:83, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:166
+- `SpillReadBytesFromLocalStorage` (1 registrations): be/src/runtime/workload_management/io_context.h:73
+- `SpillReadDeserializeBlockTime` (2 registrations): be/src/exec/operator/spill_counters.h:81, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:165
+- `SpillReadFileBytes` (2 registrations): be/src/exec/operator/spill_counters.h:87, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:168
+- `SpillReadFileCount` (2 registrations): be/src/exec/operator/spill_counters.h:91, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:170
+- `SpillReadFileTime` (2 registrations): be/src/exec/operator/spill_counters.h:79, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:164
+- `SpillReadRows` (2 registrations): be/src/exec/operator/spill_counters.h:89, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:169
+- `SpillReadTaskCount` (2 registrations): be/src/exec/operator/spill_counters.h:76, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:162
+- `SpillReadTaskWaitInQueueCount` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:161
+- `SpillReadTaskWaitInQueueTime` (2 registrations): be/src/exec/operator/spill_counters.h:78, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:163
+- `SpillRecoverTime` (2 registrations): be/src/exec/operator/spill_counters.h:72, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:160
+- `SpillRecoveryBuildBlocks` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:77
+- `SpillRecoveryBuildRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:69
+- `SpillRecoveryBuildTime` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:72
+- `SpillRecoveryLevel0BuildRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:71
+- `SpillRecoveryProbeBlocks` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:80
+- `SpillRecoveryProbeRows` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:75
+- `SpillRecoveryProbeTime` (1 registrations): be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:81
+- `SpillSerializeHashTableTime` (1 registrations): be/src/exec/operator/partitioned_aggregation_sink_operator.cpp:105
+- `SpillTotalPartitions` (2 registrations): be/src/exec/operator/partitioned_aggregation_source_operator.cpp:50, be/src/exec/operator/partitioned_hash_join_probe_operator.cpp:91
+- `SpillTotalTime` (3 registrations): be/src/exec/operator/operator.h:413, be/src/exec/operator/operator.h:743, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:159
+- `SpillWriteBlockBytes` (2 registrations): be/src/exec/operator/spill_counters.h:51, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:153
+- `SpillWriteBlockCount` (2 registrations): be/src/exec/operator/spill_counters.h:49, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:152
+- `SpillWriteBytesToLocalStorage` (1 registrations): be/src/runtime/workload_management/io_context.h:71
+- `SpillWriteFileBytes` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:154
+- `SpillWriteFileCurrentBytes` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:171
+- `SpillWriteFileCurrentCount` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:172
+- `SpillWriteFileTime` (2 registrations): be/src/exec/operator/spill_counters.h:45, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:150
+- `SpillWriteFileTotalCount` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:156
+- `SpillWriteRows` (2 registrations): be/src/exec/operator/spill_counters.h:53, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:155
+- `SpillWriteSerializeBlockTime` (2 registrations): be/src/exec/operator/spill_counters.h:47, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:151
+- `SpillWriteTaskCount` (2 registrations): be/src/exec/operator/spill_counters.h:42, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:148
+- `SpillWriteTaskWaitInQueueCount` (1 registrations): be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:147
+- `SpillWriteTaskWaitInQueueTime` (2 registrations): be/src/exec/operator/spill_counters.h:44, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:149
+- `SpillWriteTime` (2 registrations): be/src/exec/operator/spill_counters.h:38, be/src/exec/operator/spill_iceberg_table_sink_operator.cpp:146
+- `Spilled` (3 registrations): be/src/exec/operator/partitioned_aggregation_sink_operator.cpp:442, be/src/exec/operator/partitioned_hash_join_sink_operator.cpp:328, be/src/exec/operator/spill_sort_sink_operator.cpp:227
+- `SplitBlockHashComputeTime` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:67
+- `StatisticsCollectTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:239
+- `StreamingAggTime` (1 registrations): be/src/exec/operator/streaming_aggregation_operator.cpp:69
+- `SyncRowsetGetLocalDeleteBitmapRowsetsCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:161
+- `SyncRowsetGetRemoteDeleteBitmapBytes` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:170
+- `SyncRowsetGetRemoteDeleteBitmapKeyCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:167
+- `SyncRowsetGetRemoteDeleteBitmapRowsetsCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:164
+- `SyncRowsetGetRemoteRowsetsCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:156
+- `SyncRowsetTabletMetaCacheHitCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:145
+- `SyncRowsetTabletMetaCacheMissCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:148
+- `SyncRowsetTabletsRowsetsTotatCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:153
+- `TOP-N` (1 registrations): be/src/exec/operator/sort_sink_operator.cpp:83
+- `TableFunctionExecutionTime` (1 registrations): be/src/exec/operator/datagen_operator.cpp:88
+- `TabletColumnMemBytes` (1 registrations): be/src/storage/metadata_adder.h:328
+- `TabletColumnNum` (1 registrations): be/src/storage/metadata_adder.h:330
+- `TabletIds` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:1164
+- `TabletIndexMemBytes` (1 registrations): be/src/storage/metadata_adder.h:335
+- `TabletIndexNum` (1 registrations): be/src/storage/metadata_adder.h:337
+- `TabletInit` (1 registrations): be/src/storage/tablet/tablet_manager.cpp:380
+- `TabletMetaMemBytes` (1 registrations): be/src/storage/metadata_adder.h:321
+- `TabletMetaNum` (1 registrations): be/src/storage/metadata_adder.h:323
+- `TabletNum` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:276
+- `TabletReaderInitTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:279
+- `TabletSchemaMemBytes` (1 registrations): be/src/storage/metadata_adder.h:342
+- `TabletSchemaNum` (1 registrations): be/src/storage/metadata_adder.h:344
+- `TaskCpuTime` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:237
+- `TaskState` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:1109
+- `ThisTimeRevokedTasksNum` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:54
+- `TopNFilterSourceNodeIds` (1 registrations): be/src/exec/operator/scan_operator.cpp:1098
+- `TotalAddBatchExecTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1613
+- `TotalPagesNum` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:236
+- `TotalWaitExecTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1615
+- `TupleConvertTime` (2 registrations): be/src/exec/sink/writer/vfile_result_writer.cpp:111, be/src/exec/sink/writer/vmysql_result_writer.cpp:121
+- `UncompressedBytes` (1 registrations): be/src/exec/sink/writer/varrow_flight_result_writer.h:68
+- `UncompressedBytesRead` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:137
+- `UncompressedRowBatchSize` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:62
+- `UpdateRuntimePredicateTime` (1 registrations): be/src/exec/operator/sort_sink_operator.cpp:38
+- `UpdateVisitedFlagsTime` (1 registrations): be/src/exec/operator/nested_loop_join_probe_operator.cpp:104
+- `ValidAndConvertBlockTime` (1 registrations): be/src/exec/operator/group_commit_block_sink_operator.cpp:246
+- `ValidElementInHashTable` (2 registrations): be/src/exec/operator/set_probe_sink_operator.cpp:110, be/src/exec/operator/set_sink_operator.cpp:208
+- `ValidateDataTime` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1605, be/src/exec/sink/writer/vtablet_writer_v2.cpp:242
+- `VariantDocValueColumnIterCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:405
+- `VariantFillPathFromSparseColumnTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:395
+- `VariantScanSparseColumnBytes` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:393
+- `VariantScanSparseColumnTimer` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:391
+- `VariantSearchBindingDiagnostics` (1 registrations): be/src/storage/index/inverted/inverted_index_profile.h:40
+- `VariantSubtreeDefaultIterCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:397
+- `VariantSubtreeHierarchicalIterCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:401
+- `VariantSubtreeLeafIterCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:399
+- `VariantSubtreeSparseIterCount` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:403
+- `VectorPredEvalTime` (1 registrations): be/src/exec/operator/olap_scan_operator.cpp:207
+- `WaitForBroadcastBuffer` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:94
+- `WaitForData{}` (1 registrations): be/src/exec/operator/exchange_source_operator.cpp:88
+- `WaitForRpcBufferQueue` (1 registrations): be/src/exec/operator/exchange_sink_operator.cpp:86
+- `WaitForRuntimeFilter` (2 registrations): be/src/exec/operator/multi_cast_data_stream_source.cpp:40, be/src/exec/operator/scan_operator.cpp:148
+- `WaitMemLimitTime` (2 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1598, be/src/exec/sink/writer/vtablet_writer_v2.cpp:235
+- `WaitWorkerTime` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:248
+- `WakeUpEarly` (1 registrations): be/src/exec/pipeline/pipeline_task.cpp:925
+- `WhereClauseTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer.cpp:1601
+- `WriteDataTime` (1 registrations): be/src/exec/operator/result_sink_operator.cpp:44
+- `WriteDeleteFilesTime` (1 registrations): be/src/exec/sink/viceberg_delete_sink.cpp:193
+- `WriteFileCount` (2 registrations): be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:73, be/src/exec/sink/writer/vhive_table_writer.cpp:59
+- `WriteMemTableTime` (1 registrations): be/src/exec/sink/writer/vtablet_writer_v2.cpp:239
+- `WrittenDataBytes` (2 registrations): be/src/exec/sink/writer/vfile_result_writer.cpp:115, be/src/exec/sink/writer/vtvf_table_writer.cpp:44
+- `WrittenRows` (3 registrations): be/src/exec/sink/writer/iceberg/viceberg_table_writer.cpp:64, be/src/exec/sink/writer/maxcompute/vmc_table_writer.cpp:50, be/src/exec/sink/writer/vhive_table_writer.cpp:50
+- `ZoneMapIndexReaderMemBytes` (1 registrations): be/src/storage/metadata_adder.h:402
+- `ZoneMapIndexReaderNum` (1 registrations): be/src/storage/metadata_adder.h:404
+- `filtered_rows` (1 registrations): be/src/storage/compaction/compaction.cpp:250
+- `input_row_num` (1 registrations): be/src/storage/compaction/compaction.cpp:247
+- `input_rowsets_count` (1 registrations): be/src/storage/compaction/compaction.cpp:246
+- `input_rowsets_data_size` (1 registrations): be/src/storage/compaction/compaction.cpp:245
+- `input_segments_num` (1 registrations): be/src/storage/compaction/compaction.cpp:248
+- `merge_rowsets_latency` (1 registrations): be/src/storage/compaction/compaction.cpp:255
+- `merged_rows` (1 registrations): be/src/storage/compaction/compaction.cpp:249
+- `output_row_num` (1 registrations): be/src/storage/compaction/compaction.cpp:253
+- `output_rowset_data_size` (1 registrations): be/src/storage/compaction/compaction.cpp:252
+- `output_segments_num` (1 registrations): be/src/storage/compaction/compaction.cpp:254
+- `revokeCostTime` (1 registrations): be/src/runtime/memory/memory_reclamation.cpp:62
+- `streaming mode: ` (1 registrations): be/src/exec/operator/analytic_sink_operator.cpp:102
+- `{` (1 registrations): be/src/exec/operator/materialization_opertor.cpp:362
