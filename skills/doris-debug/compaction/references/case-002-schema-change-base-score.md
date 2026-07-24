@@ -4,7 +4,7 @@ category: compaction
 keywords: [base compaction, schema change, SC residue, tablet state, compaction score ghost]
 ---
 
-# Case-002: Schema Change 残留导致 Base Compaction Score 虚高
+# Case-002: Schema Change Residue Causes Inflated Base Compaction Score
 
 ## Environment
 
@@ -13,76 +13,76 @@ keywords: [base compaction, schema change, SC residue, tablet state, compaction 
 
 ## Symptom
 
-Grafana 监控显示某 BE 的 base compaction score 持续偏高：
+Grafana monitoring shows the base compaction score of one BE staying persistently high:
 - base score: max 1490, avg 1370
-- cumu score: max 79, avg 32.5（正常）
+- cumu score: max 79, avg 32.5 (normal)
 
-告警触发但集群无查询异常。用户怀疑 compaction 资源不足。
+The alert fires but the cluster has no query anomalies. The user suspects insufficient compaction resources.
 
 ## Key evidence
 
 ```
 be/log:
-get_topn_compaction_score ... type=1  → score 高（base）
-get_topn_compaction_score ... type=2  → score 正常（cumu）
+get_topn_compaction_score ... type=1  → high score (base)
+get_topn_compaction_score ... type=2  → normal score (cumu)
 ```
 
-但 `get_topn_tablets_to_compact()` 实际提交的 compaction 任务数与 score 不成比例。
+However, the number of compaction tasks actually submitted by `get_topn_tablets_to_compact()` is not proportional to the score.
 
-Grafana 截图时间范围 2026-07-01~07-07，base score 缓慢上升而非突发。
+The Grafana screenshot covers 2026-07-01 to 07-07; the base score rises slowly rather than spiking.
 
-历史检查：同一集群有 Schema Change 操作记录。
+Historical check: the same cluster has Schema Change operation records.
 
 ## Investigation
 
-### Step 1: 区分 Base vs Cumulative
+### Step 1: Distinguish Base vs Cumulative
 
-Doris compaction 枚举：
+Doris compaction enums:
 ```
 BASE_COMPACTION = 1       → base score
 CUMULATIVE_COMPACTION = 2 → cumu score
 ```
 
-`get_topn_compaction_score ... type=1` 才是 base 分数，`type=2` 是 cumu。不能混着看。
+`get_topn_compaction_score ... type=1` is the base score, `type=2` is cumu. They must not be mixed up.
 
-当前 base high / cumu normal → 是 base compaction 被阻塞，不是全局 compaction 资源不足。
+Currently base is high while cumu is normal → base compaction is blocked; this is not a global shortage of compaction resources.
 
-### Step 2: 代码核对
+### Step 2: Code Review
 
-cloud 调度调用 `get_topn_tablets_to_compact()` 计算最高分 tablet 并把值写入：
+The cloud scheduler calls `get_topn_tablets_to_compact()` to compute the highest-scoring tablet and writes the value into:
 ```
-tablet_base_max_compaction_score    → Grafana 取值源
+tablet_base_max_compaction_score    → Grafana metric source
 tablet_cumulative_max_compaction_score
 ```
 
-但 score 更新 ≠ 实际 pick tablet 执行。调度器在 pick 前会检查：
-- tablet_state 是否允许 compaction
-- 是否有 slot 可用
-- SC（Schema Change）上下文是否允许
-- 其他过滤条件
+But updating the score does not equal actually picking a tablet for execution. Before picking, the scheduler checks:
+- whether tablet_state allows compaction
+- whether a slot is available
+- whether the SC (Schema Change) context permits it
+- other filter conditions
 
-### Step 3: 过滤条件排查
+### Step 3: Filter Condition Analysis
 
-SC 操作在 tablet 上创建了 base compaction 候选（因为 SC 会生成新的 rowset 需要合并），但 SC 上下文未清理时，`tablet_state` 或 SC 状态会阻止 compaction 执行。
+The SC operation created base compaction candidates on the tablet (because SC generates new rowsets that need merging), but when the SC context has not been cleaned up, `tablet_state` or the SC state blocks compaction from executing.
 
-结果：base score 持续计算并写入 metric → Grafana 告警，但实际 compaction 不执行 → score 得不到缓解。
+Result: the base score keeps being computed and written to the metric → Grafana alerts, but compaction never actually runs → the score never gets relieved.
 
 ## Root Cause
 
-Schema Change 操作产生的残留 SC 上下文导致 base compaction 候选 tablet 无法被 compaction 调度器执行。
+Residual SC context left by Schema Change operations prevents base compaction candidate tablets from being executed by the compaction scheduler.
 
-这不是 "缺少 compaction 资源" 或 "cumu point 太多"，而是 "有候选但不允许执行"。
+This is not "insufficient compaction resources" or "too many cumu points" — it is "candidates exist but are not allowed to execute."
 
 ## Fix
 
-1. 清理残留 SC 上下文（`SHOW ALTER TABLE` 确认 SC 状态 → `CANCEL ALTER` 清理）
-2. 检查 compaction 调度过滤逻辑中 SC 相关的条件判断
-3. 不要盲目增加 compaction 线程或磁盘并发——当前不是线程/IO 不足，是候选被过滤
+1. Clean up residual SC context (`SHOW ALTER TABLE` to confirm SC status → `CANCEL ALTER` to clean up)
+2. Review the SC-related condition checks in the compaction scheduling filter logic
+3. Do not blindly increase compaction threads or disk concurrency — the issue is filtered candidates, not thread/IO shortage
 
 ## Key diagnostic actions
 
-1. 区分 base(type=1) vs cumu(type=2) score（不同问题方向）
-2. `SHOW ALTER TABLE` 检查是否有 pending/failed SC 操作
-3. be/log 搜索 `get_topn_tablets_to_compact` → 确认过滤逻辑
-4. 如果 base score 高但找不到高分 tablet（C5 场景），检查 cloud 调度 slot/状态/过滤条件
-5. `SHOW PROC '/cluster_health/tablet_health'` 确认是否有 tablet 版本异常
+1. Distinguish base (type=1) vs cumu (type=2) scores (different problem directions)
+2. `SHOW ALTER TABLE` to check for pending/failed SC operations
+3. Search be/log for `get_topn_tablets_to_compact` → confirm the filter logic
+4. If the base score is high but no high-scoring tablet can be found (C5 scenario), check cloud scheduling slots/state/filter conditions
+5. `SHOW PROC '/cluster_health/tablet_health'` to confirm whether any tablet has version anomalies

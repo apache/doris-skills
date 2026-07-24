@@ -4,7 +4,7 @@ category: node
 keywords: [FE, BDBJE, startup failure, metadata corruption, .jdb, doris-meta, recovery]
 ---
 
-# Case-004: FE BDBJE 元数据损坏导致无法启动
+# Case-004: FE BDBJE Metadata Corruption Preventing Startup
 
 ## Environment
 
@@ -13,109 +13,109 @@ keywords: [FE, BDBJE, startup failure, metadata corruption, .jdb, doris-meta, re
 
 ## Symptom
 
-FE 启动时退出，fe.log 显示：
+FE exits on startup; fe.log shows:
 ```
 java.io.FileNotFoundException: doris-meta/bdb/0000014d.jdb
   (No such file or directory)
 ```
-或：
+or:
 ```
 com.sleepycat.je.EnvironmentFailureException: ... Environment must be closed ...
 java.lang.IllegalStateException: Environment is invalid
 ```
 
-FE 进程启动后几秒自动退出。`SHOW FRONTENDS` 在其他节点上显示该 FE 状态为 `UNKNOWN` 或心跳超时。
+The FE process exits automatically a few seconds after startup. `SHOW FRONTENDS` on other nodes shows this FE's status as `UNKNOWN` or heartbeat timeout.
 
 ## Investigation
 
-### Step 1: 确认文件系统状态
+### Step 1: Check filesystem state
 
 ```bash
 ls -la fe/doris-meta/bdb/
-# 查看 .jdb 文件列表，确认缺失的文件名
+# Review the .jdb file list to confirm which files are missing
 
 du -sh fe/doris-meta/bdb/
-# 确认目录大小是否异常小（< 正常大小 = 可能被清空或损坏）
+# Check whether the directory size is abnormally small (< normal size = possibly wiped or corrupted)
 
 df -h fe/doris-meta/
-# 确认磁盘是否曾经写满
+# Check whether the disk was ever full
 ```
 
-常见场景：
-- 磁盘写满 → BDBJE write 失败 → 日志文件不完整或缺失
-- 异常关机（kill -9 / 断电）→ BDBJE 未完成 checkpoint → 日志文件损坏
-- 人为误删 `doris-meta/bdb/` 中的文件
+Common scenarios:
+- Disk filled up → BDBJE write failed → log files incomplete or missing
+- Abnormal shutdown (kill -9 / power loss) → BDBJE did not finish checkpoint → log files corrupted
+- Files in `doris-meta/bdb/` deleted by human error
 
-### Step 2: 确认集群状态
+### Step 2: Check cluster state
 
 ```sql
--- 在其他健康 FE 上执行
+-- Execute on another healthy FE
 SHOW FRONTENDS\G
 ```
 
-确认：
-- 当前是否还有健康的 Master/Follower？
-- 出问题的 FE 角色是什么（Master / Follower / Observer）？
+Confirm:
+- Is there still a healthy Master/Follower?
+- What is the role of the failed FE (Master / Follower / Observer)?
 
-**关键原则：永远不要删除最后一个健康 Master 的 doris-meta/ 目录。**
+**Key principle: NEVER delete the doris-meta/ directory of the last healthy Master.**
 
-### Step 3: 恢复策略
+### Step 3: Recovery strategy
 
-#### 场景 A: 出问题的是 Follower 或 Observer
+#### Scenario A: The failed FE is a Follower or Observer
 
 ```
-1. 从集群中移除该 FE:
+1. Remove the FE from the cluster:
    ALTER SYSTEM DROP FOLLOWER "bad_host:9010"
-   或 ALTER SYSTEM DROP OBSERVER "bad_host:9010"
+   or ALTER SYSTEM DROP OBSERVER "bad_host:9010"
 
-2. 停止该 FE 进程
+2. Stop the FE process
 
-3. 清空 doris-meta/:
+3. Clear doris-meta/:
    rm -rf fe/doris-meta/*
 
-4. 重新加入集群:
+4. Rejoin the cluster:
    ALTER SYSTEM ADD FOLLOWER "bad_host:9010"
-   # FE 会从 Master 自动同步元数据
+   # The FE will automatically sync metadata from the Master
 ```
 
-#### 场景 B: 出问题的是 Master 但还有其他健康 Follower
+#### Scenario B: The failed FE is the Master but other healthy Followers exist
 
 ```
-1. 从集群中移除该 Master（集群会自动重新选主）
-2. 清空该 FE 的 doris-meta/
-3. 以 Follower 身份重新加入
+1. Remove the Master from the cluster (the cluster will automatically re-elect)
+2. Clear that FE's doris-meta/
+3. Rejoin as a Follower
 ```
 
-#### 场景 C: 出问题的是唯一的 Master 且没有 Follower
+#### Scenario C: The failed FE is the only Master with no Followers
 
 ```
-⚠️ 最高风险场景
-1. 先备份整个 fe/doris-meta/ 目录
-2. 尝试 BDBJE recovery:
+⚠️ Highest-risk scenario
+1. Back up the entire fe/doris-meta/ directory first
+2. Attempt BDBJE recovery:
    java -jar je.jar DbRecover -h fe/doris-meta/bdb
-3. 如果 recovery 失败，使用最近的元数据镜像:
-   fe/doris-meta/image/ 中最新的 image 文件
-4. 联系专业支持
+3. If recovery fails, use the most recent metadata image:
+   the latest image file under fe/doris-meta/image/
+4. Contact professional support
 ```
 
 ## Root Cause
 
-BDBJE 日志文件（.jdb）因磁盘满、异常关机、或人为误操作导致损坏或丢失。
+BDBJE log files (.jdb) were corrupted or lost due to a full disk, abnormal shutdown, or human error.
 
 ## Fix
 
-- **从健康副本恢复**: 如果有健康的 Follower/Observer，从其 rsync `doris-meta/`
-- **BDBJE recovery**: 使用 Berkeley DB JE 的 recovery 工具（成功率取决于损坏程度）
-- **预防**:
-  1. 监控 FE 磁盘使用率，预留充足空间
-  2. 至少配置 1 Follower + 1 Observer 实现高可用
-  3. 定期备份 `fe/doris-meta/`
-  4. 使用优雅关机（`kill -15` 而非 `kill -9`）
+- **Recover from a healthy replica**: If a healthy Follower/Observer exists, rsync `doris-meta/` from it
+- **BDBJE recovery**: Use the Berkeley DB JE recovery tool (success rate depends on the extent of corruption)
+- **Prevention**:
+  1. Monitor FE disk usage and reserve ample space
+  2. Configure at least 1 Follower + 1 Observer for high availability
+  3. Back up `fe/doris-meta/` regularly
+  4. Use graceful shutdown (`kill -15` instead of `kill -9`)
 
 ## Key diagnostic actions
 
-1. `ls -la fe/doris-meta/bdb/` 确认文件完整性
-2. `SHOW FRONTENDS` 确认集群还有哪些健康节点
-3. 确认损坏 FE 的角色（Master/Follower/Observer）
-4. 永远不要删除最后一个健康 Master 的 `doris-meta/`
-5. 恢复前先备份现有的 `doris-meta/`
+1. `ls -la fe/doris-meta/bdb/` to confirm file integrity
+2. `SHOW FRONTENDS` to see which nodes in the cluster are still healthy
+3. Confirm the role of the corrupted FE (Master/Follower/Observer)
+4. NEVER delete the `doris-meta/` of the last healthy Master
+5. Back up the existing `doris-meta/` before attempting recovery

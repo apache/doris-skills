@@ -4,7 +4,7 @@ category: node
 keywords: [file_cache, LRU, memory leak, heap dump, jeprof, MEM_LIMIT_EXCEEDED]
 ---
 
-# Case-002: File Cache LRU Recorder 队列堆积导致 BE 内存泄漏
+# Case-002: File Cache LRU Recorder Queue Pileup Causing BE Memory Leak
 
 ## Environment
 
@@ -13,72 +13,72 @@ keywords: [file_cache, LRU, memory leak, heap dump, jeprof, MEM_LIMIT_EXCEEDED]
 
 ## Symptom
 
-BE RSS 持续线性增长，无查询时也不释放。最终触发 `MEM_LIMIT_EXCEEDED`。
-CPU 在内存上涨期间也升高。DataPageCache 和 SegmentCache 监控显示正常（低水位）。
+BE RSS grows linearly and is never released, even with no queries running. Eventually triggers `MEM_LIMIT_EXCEEDED`.
+CPU also rises while memory grows. DataPageCache and SegmentCache metrics look normal (low watermark).
 
 ## Key evidence
 
-heap dump 分析显示内存增量主要落在：
+Heap dump analysis shows the memory increase is mainly in:
 ```
 LRUQueueRecorder::record_queue_event
   → moodycamel::ConcurrentQueue<CacheLRULog>
 ```
 
-`/profile` 中：
+In `/profile`:
 ```
 VmRSS: 228.56 GB
-DataPageCache Current: 410.65 MB    ← 不是它
-SegmentCache Current: 0             ← 不是它
-QueryCache@cache Current: 45.56 GB  ← 占大头但不是泄漏源
+DataPageCache Current: 410.65 MB    ← not the culprit
+SegmentCache Current: 0             ← not the culprit
+QueryCache@cache Current: 45.56 GB  ← the largest consumer but not the leak source
 ```
 
-`CacheMemory: 45.95 GB` 主要来自 QueryCache，而 heap dump 增量大头是 FileCache LRU recorder 队列。
+`CacheMemory: 45.95 GB` mostly comes from QueryCache, while the bulk of the heap dump increase is the FileCache LRU recorder queue.
 
 ## Investigation
 
-### Step 1: 排除 DataPageCache/SegmentCache
+### Step 1: Rule out DataPageCache/SegmentCache
 
-监控显示异常 BE 的 DataPageCache（410MB）和 SegmentCache（0）远低于其他 BE，排除。
+Metrics show the abnormal BE's DataPageCache (410MB) and SegmentCache (0) are far below those of other BEs — ruled out.
 
-### Step 2: heap dump 定位
+### Step 2: Locate via heap dump
 
-`jeprof --text` 显示热点在：
+`jeprof --text` shows the hotspot at:
 ```
 LRUQueueRecorder::record_queue_event
 moodycamel::ConcurrentQueue<CacheLRULog>::enqueue
 ```
 
-这是 FileCache 的 LRU 淘汰记录队列（不是 DataPageCache 的数据缓存）。
+This is the FileCache LRU eviction recorder queue (not the DataPageCache data cache).
 
-### Step 3: 代码核对
+### Step 3: Code inspection
 
-4.1.2 版本中，`file_cache_background_lru_log_replay_interval_ms` 默认为 `1000`（1 秒消费一次），但没有 hard cap 限制 LRU recorder queue 的大小。
+In 4.1.2, `file_cache_background_lru_log_replay_interval_ms` defaults to `1000` (consumed once per second), but there is no hard cap on the LRU recorder queue size.
 
-当 FileCache 访问频率极高时，LRU log 的生产速度 > 消费速度（1000ms 一次），队列无限堆积 → heap 持续上涨。
+When FileCache access frequency is extremely high, LRU log production rate > consumption rate (once every 1000ms), so the queue piles up indefinitely → heap keeps growing.
 
-### Step 4: 修复版本确认
+### Step 4: Confirm the fixed version
 
-4.1.8 版本已引入修复（cherry-pick apache/doris PR #64381）：
-- 新增 `file_cache_background_lru_log_queue_max_size=500000`
-- `file_cache_background_lru_log_replay_interval_ms` 默认从 `1000` 改为 `1`
-- 增加 LRU recorder queue size 的计数/释放逻辑
+4.1.8 includes the fix (cherry-picked apache/doris PR #64381):
+- Adds `file_cache_background_lru_log_queue_max_size=500000`
+- Changes the default of `file_cache_background_lru_log_replay_interval_ms` from `1000` to `1`
+- Adds accounting/release logic for the LRU recorder queue size
 
 ## Root Cause
 
-FileCache 的 LRU recorder queue 在高频访问下生产速度超过消费速度，且 4.1.2 版本中没有 queue size hard cap，导致 queue 无限堆积 → BE heap 持续增长。
+Under high-frequency access, the FileCache LRU recorder queue produces faster than it consumes, and 4.1.2 has no queue size hard cap, so the queue piles up without bound → BE heap keeps growing.
 
 ## Fix
 
-- **临时规避**: 调小 `file_cache_background_lru_log_replay_interval_ms`（1000→1 或 100），提高消费频率。但已堆积的内存不会立即归还
+- **Temporary workaround**: Lower `file_cache_background_lru_log_replay_interval_ms` (1000→1 or 100) to increase consumption frequency. Note: already-accumulated memory is not returned immediately
   ```bash
   curl -X POST "http://<be>:8040/api/update_config?file_cache_background_lru_log_replay_interval_ms=1&persist=true"
   ```
-- **止血**: 重启受影响 BE 释放已堆积的 recorder queue 内存
-- **根治**: 升级到 4.1.8 或 backport PR #64381（增加 queue size hard cap）
+- **Stop the bleeding**: Restart the affected BEs to release the piled-up recorder queue memory
+- **Permanent fix**: Upgrade to 4.1.8 or backport PR #64381 (adds queue size hard cap)
 
 ## Key diagnostic actions
 
-1. `jeprof --text` heap dump → 确认热点在 `LRUQueueRecorder`
-2. `be-metrics --grep file_cache` → 观察 `file_cache_need_update_lru_blocks_length`
-3. 排除 DataPageCache/SegmentCache/QueryCache 后仍高 RSS → FileCache LRU
-4. 检查 `file_cache_background_lru_log_replay_interval_ms` 当前值
+1. `jeprof --text` heap dump → confirm the hotspot is `LRUQueueRecorder`
+2. `be-metrics --grep file_cache` → watch `file_cache_need_update_lru_blocks_length`
+3. If RSS stays high after ruling out DataPageCache/SegmentCache/QueryCache → suspect FileCache LRU
+4. Check the current value of `file_cache_background_lru_log_replay_interval_ms`

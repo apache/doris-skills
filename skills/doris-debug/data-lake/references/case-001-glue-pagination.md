@@ -4,7 +4,7 @@ category: data-lake
 keywords: [glue, catalog, pagination, NextToken, SHOW DATABASES, AWS]
 ---
 
-# Case-001: Glue Catalog 只展示部分 Database — Pagination 丢失
+# Case-001: Glue Catalog Shows Only Some Databases — Pagination Lost
 
 ## Environment
 
@@ -14,49 +14,49 @@ keywords: [glue, catalog, pagination, NextToken, SHOW DATABASES, AWS]
 
 ## Symptom
 
-`SHOW DATABASES FROM glue_catalog` 只返回前几页的 database，大量 database 未显示。
+`SHOW DATABASES FROM glue_catalog` returns only the first few pages of databases; a large number of databases are not shown.
 
-直接在 AWS Glue API 调用返回完整列表（100+ databases），但 Doris 只展示前 20 个左右。
+Calling the AWS Glue API directly returns the complete list (100+ databases), but Doris only shows about the first 20.
 
 ## Investigation
 
-### Step 1: 对比 Glue API vs Doris
+### Step 1: Compare Glue API vs Doris
 
 ```bash
-# AWS Glue API 直接调用
+# Direct AWS Glue API call
 aws glue get-databases --region us-east-1 | jq '.DatabaseList | length'
-# 返回: 100+
+# Returns: 100+
 
-# Doris 查询
+# Doris query
 mysql> SHOW DATABASES FROM glue_catalog;
-# 返回: 20 rows
+# Returns: 20 rows
 ```
 
-### Step 2: 代码核对
+### Step 2: Code Review
 
-Glue `GetDatabases` API 的默认 page size 通常是 20 或 50，返回结果包含 `NextToken` 用于请求下一页。
+The default page size of the Glue `GetDatabases` API is usually 20 or 50, and the response includes a `NextToken` for requesting the next page.
 
-Doris `GlueCatalog.getAllDatabases()` 中：
-- 如果未正确处理 `NextToken`
-- 或仅调用一次 API 不进行 pagination 循环
-- 结果：只返回第一页的 database
+In Doris `GlueCatalog.getAllDatabases()`:
+- If `NextToken` is not handled correctly
+- or the API is called only once without a pagination loop
+- Result: only the first page of databases is returned
 
-### Step 3: 确认 fe.log
+### Step 3: Check fe.log
 
 ```
 fe/log/fe.log:
 grep -i "GlueCatalog" fe.log
 ```
 
-如果有 `getAllDatabases` 相关日志，对比返回的 database 数量与 AWS API 实际数量。
+If there are `getAllDatabases`-related logs, compare the number of databases returned with the actual count from the AWS API.
 
 ## Root Cause
 
-Doris Glue Catalog 的 `getAllDatabases()` 实现未正确处理 AWS Glue API 的 `NextToken` pagination 机制，只获取到第一页数据。
+The Doris Glue Catalog's `getAllDatabases()` implementation does not correctly handle the AWS Glue API's `NextToken` pagination mechanism and only fetches the first page of data.
 
 ## Fix
 
-- 修复 `GlueCatalog.getAllDatabases()` 增加 pagination 循环：
+- Fix `GlueCatalog.getAllDatabases()` by adding a pagination loop:
   ```java
   do {
       GetDatabasesResult result = glueClient.getDatabases(request);
@@ -67,7 +67,7 @@ Doris Glue Catalog 的 `getAllDatabases()` 实现未正确处理 AWS Glue API �
 
 ## Key diagnostic actions
 
-1. 对比 AWS Glue API 直接调用结果 vs Doris `SHOW DATABASES` 返回
-2. fe.log 搜索 `GlueCatalog` 或 `getAllDatabases` 错误
-3. 确认 Glue API 返回的 `NextToken`
-4. 如果适用，同样检查 Hive Metastore / Iceberg REST catalog 的 pagination 处理
+1. Compare the result of calling the AWS Glue API directly vs Doris `SHOW DATABASES`
+2. Search fe.log for `GlueCatalog` or `getAllDatabases` errors
+3. Confirm the `NextToken` returned by the Glue API
+4. If applicable, also check pagination handling in Hive Metastore / Iceberg REST catalogs
