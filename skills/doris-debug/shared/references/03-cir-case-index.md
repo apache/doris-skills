@@ -1,13 +1,13 @@
 # Doris Production Case Index
 
-> 43 representative cases selected from 20,000+ production troubleshooting records, organized by doris-debug skill domain.
+> 45 representative cases selected from 20,000+ production troubleshooting records, organized by doris-debug skill domain.
 > Each case includes Symptom / Root cause / Fix / Key diagnostic actions.
 
 ## Statistics Overview
 
 | Diagnostic Domain | Cases | Key Patterns |
 |--------|--------|----------|
-| Query | 7 | Plan Time / Scan bottleneck / Exchange E11 / Flapping results / Overwrite conflict / Abnormal CPU / Compute group divergence |
+| Query | 7 | Plan Time / Scan bottleneck / Exchange E11 / Fluctuating results / Overwrite conflict / Abnormal CPU / Compute group divergence |
 | Import | 6 | 307 redirect / FE OOM leak / Slow S3 load / RPC timeout / Arrow format / Slow meta-service |
 | Compaction | 5 | Residual SC base score / cumu segfault / Versions compacted / High cumu score / Inverted index rebuild |
 | Node | 7 | Auto analyze OOM / file_cache leak / BE coredump / FE bdbje corruption / Persistent BE memory leak / Abnormal CPU / 200GB at startup |
@@ -19,7 +19,7 @@
 
 ---
 
-## Query (Query Diagnostics) — 7 cases
+## Query — 7 cases
 
 ### Case Q1: FE Nereids Plan Time 10min (Iceberg External Table RPC Explosion)
 
@@ -69,7 +69,7 @@
 - **Fix**: Unify the partition source (use only the PARTITION clause or only the WHERE condition); fixed in 4.0.5+
 - **Key diagnostic actions**: EXPLAIN to confirm the actual scanned/written partitions → compare PARTITION clause vs WHERE condition
 
-### Case Q6: Query Results Flap
+### Case Q6: Query Results Fluctuate Across Runs
 
 - **Severity**: Medium
 - **Doris version**: 2.1.7
@@ -87,7 +87,7 @@
 
 ---
 
-## Import (Load Diagnostics) — 6 cases
+## Import — 6 cases
 
 ### Case I1: Stream Load HTTP 307 Redirect Failure
 
@@ -144,7 +144,7 @@
 
 ---
 
-## Compaction (Compaction Diagnostics) — 5 cases
+## Compaction — 5 cases
 
 ### Case C1: Residual Schema Change → High Base Score
 
@@ -193,7 +193,7 @@
 
 ---
 
-## Node (Node Health Diagnostics) — 7 cases
+## Node — 7 cases
 
 ### Case N1: Auto Analyze → OOM
 
@@ -257,7 +257,7 @@
 
 ---
 
-## Tablet (Tablet/Replica Diagnostics) — 3 cases
+## Tablet — 3 cases
 
 ### Case T1: Abnormal Tablet Statistics
 
@@ -284,7 +284,7 @@
 
 ---
 
-## Deployment (Deployment Diagnostics) — 2 cases
+## Deployment — 2 cases
 
 ### Case D1: FE Fails to Start with NPE
 
@@ -303,7 +303,7 @@
 
 ---
 
-## Data Lake (Data Lake Diagnostics) — 5 cases
+## Data Lake — 5 cases
 
 ### Case DL1: Glue Catalog Pagination Loses Databases
 
@@ -350,7 +350,7 @@
 
 ---
 
-## Resource Isolation (Resource Isolation Diagnostics) — 5 cases
+## Resource Isolation — 5 cases
 
 ### Case R1: Spill Disk Not Taking Effect
 
@@ -396,7 +396,7 @@
 
 ---
 
-## Cloud Diagnoses (Storage-Compute Separation Diagnostics) — 5 cases
+## Cloud — 5 cases
 
 ### Case CL1: Queries Still Cache Miss After Warmup
 
