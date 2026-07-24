@@ -25,6 +25,7 @@ intentionally out of scope here; use your platform's cluster-management console 
 |---|---|
 | `doris-best-practices` | Apache Doris table design, sizing, and runtime query investigation (37 rules, 7 use-case templates, 4 sizing guides) |
 | `doris-architecture-advisor` | Workload-aware architecture design (8 decision rules, 10 worked industry examples) |
+| `doris-debug` | Production diagnostic suite: symptom router + 10 domain skills (query, import, compaction, node, MV, tablet, deployment, data-lake, resource-isolation, cloud), 16 case files, 45 case patterns |
 
 ## How to use
 
