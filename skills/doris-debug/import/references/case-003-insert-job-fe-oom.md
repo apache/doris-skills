@@ -4,7 +4,7 @@ category: import
 keywords: [INSERT INTO, OOM, JobManager, job leak, FE memory, jmap, mem_leak]
 ---
 
-# Case-003: INSERT INTO Job 不清理导致 FE 内存打爆反复 OOM
+# Case-003: Uncleaned INSERT INTO Jobs Cause FE Memory Blowup and Repeated OOM
 
 ## Environment
 
@@ -13,75 +13,75 @@ keywords: [INSERT INTO, OOM, JobManager, job leak, FE memory, jmap, mem_leak]
 
 ## Symptom
 
-FE 内存持续增长直至 OOM，重启后恢复但数小时/数天后再次 OOM。
+FE memory keeps growing until OOM; a restart recovers it, but OOM recurs after hours or days.
 
-`jmap -histo` 显示大量 `InsertJob` 对象存活。
+`jmap -histo` shows a large number of live `InsertJob` objects.
 
-`SHOW LOAD` / `SHOW INSERT` 显示数千个历史 job（状态均为 FINISHED 或 CANCELLED），远超正常范围。
+`SHOW LOAD` / `SHOW INSERT` shows thousands of historical jobs (all in FINISHED or CANCELLED state), far beyond the normal range.
 
 ## Investigation
 
-### Step 1: 确认 OOM 类型
+### Step 1: Confirm the OOM Type
 
 ```bash
 jmap -heap <fe_pid> | head -20
-# Old Gen 使用率接近 100%，频繁 Full GC
+# Old Gen usage close to 100%, frequent Full GC
 
 jmap -histo <fe_pid> | head -30
-# InsertJob / AbstractJob 对象数量异常高
+# Abnormally high InsertJob / AbstractJob object count
 ```
 
-### Step 2: 确认 job 数量
+### Step 2: Confirm the Job Count
 
 ```sql
 SHOW LOAD ORDER BY CreateTime DESC LIMIT 100;
--- 大量 FINISHED/CANCELLED 状态的 INSERT INTO job
+-- Large number of INSERT INTO jobs in FINISHED/CANCELLED state
 
 SELECT COUNT(*) FROM information_schema.loads WHERE Type='INSERT';
--- 返回数字异常大（数千甚至上万）
+-- Returns an abnormally large number (thousands or even tens of thousands)
 ```
 
-### Step 3: 代码核对
+### Step 3: Code Review
 
-INSERT INTO job 流程：
-1. INSERT INTO 语句被注册为 job（包含 `InsertJob` 对象）
-2. Job 执行完成后状态变为 FINISHED
-3. `JobManager` 应将 FINISHED job 从内存中移除
-4. Bug: `JobManager` 未清理 FINISHED job
-5. FE restart 时 `JobManager.reload()` 从元数据加载所有历史 job → 反复 OOM
+INSERT INTO job flow:
+1. An INSERT INTO statement is registered as a job (containing an `InsertJob` object)
+2. After the job finishes, its state becomes FINISHED
+3. `JobManager` should remove FINISHED jobs from memory
+4. Bug: `JobManager` does not clean up FINISHED jobs
+5. On FE restart, `JobManager.reload()` loads all historical jobs from metadata → repeated OOM
 
 ```
 FE start
   → JobManager.reload()
-    → 从 doris-meta 加载所有历史 INSERT job
-      → InsertJob 对象全部进入 heap
-        → 累积数千个 → Old Gen 满 → Full GC → OOM
+    → Load all historical INSERT jobs from doris-meta
+      → All InsertJob objects enter the heap
+        → Thousands accumulate → Old Gen full → Full GC → OOM
 ```
 
 ## Root Cause
 
-INSERT INTO job 完成（FINISHED）后 `JobManager` 未从内存中清理对应的 `InsertJob` 对象。每次 FE 重启都会重新加载全部历史 job，导致内存持续增长直至 OOM。
+After an INSERT INTO job completes (FINISHED), `JobManager` does not remove the corresponding `InsertJob` object from memory. Every FE restart reloads all historical jobs, causing memory to grow continuously until OOM.
 
 ## Fix
 
-- **临时止血（紧急）**: 
+- **Temporary stopgap (urgent)**:
   ```sql
-  -- 找到最老的 FINISHED job
+  -- Find the oldest FINISHED job
   SHOW LOAD WHERE State='FINISHED' ORDER BY CreateTime LIMIT 1;
   ```
-  如果版本支持 `DROP LOAD` 清理历史 job（谨慎操作，仅对不再需要审计的 job）
+  If the version supports `DROP LOAD` to clean up historical jobs (use with caution, only for jobs no longer needed for auditing)
 
-- **临时止血（代码层面）**: FE 代码增加 `JobManager.cleanFinishedJobs()` 清理逻辑，定期清理 memory 中的已完成 job
+- **Temporary stopgap (code level)**: Add `JobManager.cleanFinishedJobs()` cleanup logic in the FE code to periodically purge completed jobs from memory
 
-- **根治**: 
-  1. `JobManager` 对 FINISHED job 执行即时清理
-  2. Reload 时增加 max job count 保护，超出阈值时只加载最近 N 个
-  3. 为历史 job 增加 TTL，超时自动清理元数据和内存
+- **Permanent fix**:
+  1. `JobManager` cleans up FINISHED jobs immediately
+  2. Add a max job count safeguard on reload: when the threshold is exceeded, only load the most recent N jobs
+  3. Add a TTL for historical jobs so metadata and memory are cleaned up automatically on expiry
 
 ## Key diagnostic actions
 
-1. `SHOW LOAD` / `SHOW INSERT` 统计历史 job 总数
-2. `jmap -histo` 确认 InsertJob/AbstractJob 对象数量
-3. `jmap -heap` 确认 Old Gen 使用率
-4. fe.log 搜索 `OOM` / `GC overhead` / `heap space` 确认 OOM 时间线
-5. 确认 FE restart 后 job 数量是否同样上升（验证 reload 逻辑）
+1. `SHOW LOAD` / `SHOW INSERT` to count total historical jobs
+2. `jmap -histo` to confirm the number of InsertJob/AbstractJob objects
+3. `jmap -heap` to confirm Old Gen usage
+4. Search fe.log for `OOM` / `GC overhead` / `heap space` to establish the OOM timeline
+5. Confirm whether the job count rises again after FE restart (validates the reload logic)

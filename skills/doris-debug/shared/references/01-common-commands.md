@@ -1,6 +1,6 @@
-# Doris 公共诊断命令
+# Doris Common Diagnostic Commands
 
-端口默认（以 conf 为准）：FE HTTP `8030` / MySQL `9030`；BE HTTP `8040` / brpc `8060`。
+Default ports (subject to conf): FE HTTP `8030` / MySQL `9030`; BE HTTP `8040` / brpc `8060`.
 
 ```sql
 SHOW FRONTENDS\G

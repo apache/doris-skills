@@ -4,7 +4,7 @@ category: import
 keywords: [tablet writer, RPC timeout, heavy work pool, brpc_heavy, import stuck]
 ---
 
-# Case-002: 导入 RPC Timed Out — BE Heavy Work Pool 打满
+# Case-002: Import RPC Timed Out — BE Heavy Work Pool Saturated
 
 ## Environment
 
@@ -13,34 +13,34 @@ keywords: [tablet writer, RPC timeout, heavy work pool, brpc_heavy, import stuck
 
 ## Symptom
 
-导入偶发失败，日志显示：
+Imports fail intermittently; logs show:
 ```
 VNodeChannel[...] node=172.31.36.239:8061 open failed ...
 RPC call is timed out ... Reached timeout=60000ms
 ```
-随后 coordinator cancel 整条 load。后续日志：
+The coordinator then cancels the entire load. Subsequent logs:
 ```
 failed to prepare rowset: txn is not in 1 state, txn_status=4
 ```
-重试后成功，说明是瞬时拥塞而非数据问题。
+Retrying succeeds, indicating transient congestion rather than a data problem.
 
 ## Key evidence
 
 ```
-2026-07-08 00:58:33.541  开始: query_id=8456cc28099544e9, query type: LOAD
+2026-07-08 00:58:33.541  start: query_id=8456cc28099544e9, query type: LOAD
 2026-07-08 00:58:33.551  open tablets channel: tablets num=29, senders=74
 2026-07-08 00:59:57.677  open failed: RPC call is timed out (60s)
                         → cancel other node channels
-2026-07-08 01:00:57.649  txn_status=4 (load channel 已被 cancel)
+2026-07-08 01:00:57.649  txn_status=4 (load channel already cancelled)
 ```
 
-同一窗口（00:47~01:53）内 `Reached timeout=60000ms @172.31.36.239:8061` 成簇出现，不是孤立超时。
+Within the same window (00:47~01:53), `Reached timeout=60000ms @172.31.36.239:8061` appears in clusters — not isolated timeouts.
 
-日志中未出现 `fail to offer request to the work pool`（queue offer 失败签名）。
+The logs do not contain `fail to offer request to the work pool` (the queue offer failure signature).
 
 ## Investigation
 
-### Step 1: 代码路径确认
+### Step 1: Confirm the Code Path
 
 ```
 VNodeChannel::_open_internal
@@ -51,38 +51,38 @@ VNodeChannel::_open_internal
   → TabletsChannel::open / _open_all_writers
 ```
 
-`tablet_writer_open` 在 BE 侧进入 `brpc_heavy` work pool 后执行 load channel/open writer。超时=60s 由 `tablet_writer_open_rpc_timeout_sec` 控制。
+On the BE side, `tablet_writer_open` enters the `brpc_heavy` work pool and then executes load channel/open writer. The 60s timeout is controlled by `tablet_writer_open_rpc_timeout_sec`.
 
-### Step 2: 区分 offer 失败 vs 执行阻塞
+### Step 2: Distinguish Offer Failure vs Execution Blocking
 
-| 日志签名 | 含义 |
+| Log signature | Meaning |
 |---------|------|
-| `fail to offer request to the work pool` | heavy pool 队列满，请求被拒绝 |
-| `RPC call is timed out`（无 offer 失败日志） | 请求进入 heavy pool 后执行过慢或排队超时 |
+| `fail to offer request to the work pool` | heavy pool queue is full; the request is rejected |
+| `RPC call is timed out` (no offer failure log) | the request entered the heavy pool but executed too slowly or timed out while queued |
 
-当前是后者：请求进入了 heavy pool 但执行超时。
+The current case is the latter: requests entered the heavy pool but timed out during execution.
 
-### Step 3: 历史比对
+### Step 3: Historical Comparison
 
-历史有同一模式：目标 BE `brpc_heavy_work_pool_threads=256` 在高并发导入时全部 active thread 被 long-running open/write 占满，后续请求排队等待 → 超时。
+History shows the same pattern: on the target BE with `brpc_heavy_work_pool_threads=256`, all active threads are occupied by long-running open/write operations under high-concurrency imports, so subsequent requests queue up and time out.
 
-临时缓解方式：`brpc_heavy_work_pool_threads 256→384`，但没闭环到具体卡点（故障时未保留 pstack）。
+Temporary mitigation: `brpc_heavy_work_pool_threads 256→384`, but the specific blocking point was never pinned down (no pstack was captured during the incident).
 
 ## Root Cause
 
-目标 BE 的 `brpc_heavy` work pool 在导入高并发时被 `tablet_writer_open` / `_open_all_writers` 占满，active heavy 线程长期被占导致后续请求排队超时。
+Under high-concurrency imports, the target BE's `brpc_heavy` work pool is saturated by `tablet_writer_open` / `_open_all_writers`. Active heavy threads remain occupied for a long time, causing subsequent requests to queue and time out.
 
 ## Fix
 
-- **短期**: 降低/错峰同一 compute group 上的大 insert/load 并发；重试即可恢复
-- **中期**: 调大 `brpc_heavy_work_pool_threads`（256→384），但注意这只是增加排队容量，不是根治
-- **故障时务必保留现场**: 在重启 BE 之前先 `pstack` 卡住的进程，才能定位具体卡点（writer/open、IO、cgroup stall 等）
-- **长期**: 分析 heavy pool 中 long-running 操作的耗时分布，考虑拆分或限流
+- **Short term**: Reduce or stagger the concurrency of large insert/load jobs on the same compute group; retrying recovers
+- **Medium term**: Increase `brpc_heavy_work_pool_threads` (256→384), but note this only adds queuing capacity — it is not a cure
+- **Always preserve the scene during an incident**: `pstack` the stuck process before restarting the BE, so the specific blocking point can be located (writer/open, IO, cgroup stall, etc.)
+- **Long term**: Analyze the latency distribution of long-running operations in the heavy pool; consider splitting them up or applying rate limiting
 
 ## Key diagnostic actions
 
-1. be/log 搜索 `RPC call is timed out` → 确认目标 BE 和时间窗口
-2. 确认同一窗口是否成簇出现（单点瞬时拥塞 vs 持续问题）
-3. 检查 `fail to offer request to the work pool` 签名（区分 offer 失败 vs 执行阻塞）
-4. 故障窗口保留 pstack 再重启 BE
-5. 检查 `tablet_writer_open_rpc_timeout_sec` 配置
+1. Search be/log for `RPC call is timed out` → confirm the target BE and time window
+2. Confirm whether timeouts appear in clusters within the same window (transient congestion at a single point vs a persistent problem)
+3. Check for the `fail to offer request to the work pool` signature (distinguishes offer failure from execution blocking)
+4. Capture pstack during the incident window before restarting the BE
+5. Check the `tablet_writer_open_rpc_timeout_sec` configuration
