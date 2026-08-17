@@ -1,7 +1,7 @@
 # doris-skills verification suite
 
-Regression suite that checks the **factual claims** in the skills against a real
-Apache Doris cluster and against `doriscli`. Three layers:
+Regression suite that checks the **factual claims** in the cluster-side skills against a
+real Apache Doris cluster and against `doriscli`. Three layers:
 
 | Layer | What it proves | Tool | Status |
 |---|---|---|---|
