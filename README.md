@@ -27,6 +27,11 @@ intentionally out of scope here; use your platform's cluster-management console 
 | `doris-architecture-advisor` | Workload-aware architecture design (8 decision rules, 10 worked industry examples) |
 | `doris-debug` | Production diagnostic suite: symptom router + 10 domain skills (query, import, compaction, node, MV, tablet, deployment, data-lake, resource-isolation, cloud), 16 case files, 45 case patterns |
 | `doris-profile-reader` | Query runtime profile interpretation and bottleneck triage (counter semantics, join-order / runtime-filter diagnosis, 9 reference guides) |
+| `doris-repo-review` | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner (worktree alignment, risk scan, subagent fan-out, shared ledger, anchored EN + ZH review documents) |
+
+Every skill above except `doris-repo-review` reasons about a running cluster. `doris-repo-review`
+is the contributor-side one: it works on an Apache Doris **source** checkout and never touches a
+cluster.
 
 ## How to use
 
@@ -89,7 +94,10 @@ doris-skills/
 ├── CLI-CONTRACT.md            # doriscli commands + JSON fields the skills depend on
 ├── skills/
 │   ├── doris-best-practices/
-│   └── doris-architecture-advisor/
+│   ├── doris-architecture-advisor/
+│   ├── doris-debug/
+│   ├── doris-profile-reader/
+│   └── doris-repo-review/     # contributor-side: reviews an apache/doris PR, not a cluster
 └── verify/                    # regression suite for the skills' claims — L1 DDL, L2 CLI, L3 behavior
 ```
 
