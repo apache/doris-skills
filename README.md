@@ -34,10 +34,12 @@ skill from its `description`, so in practice you describe the problem and the ri
 
 | Skill | What it does | Use it when |
 |---|---|---|
-| [`doris-repo-review`](skills/doris-repo-review/) | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner: worktree alignment, risk scan, subagent fan-out, shared ledger, anchored EN + ZH review documents | Reviewing an `apache/doris` pull request locally, the way the pipeline would |
+| [`doris-repo-review`](skills/doris-repo-review/) | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner: worktree alignment, risk scan, subagent fan-out, shared ledger, anchored EN + ZH review documents, and — on a passing review — one machine-readable PASS comment on the PR | Reviewing an `apache/doris` pull request locally, the way the pipeline would |
 
 These skills read a Doris **source** checkout and never touch a cluster; the cluster-side skills
-never touch repository source. Nothing here builds Doris, runs tests, or writes to GitHub.
+never touch repository source. Nothing here builds Doris or runs tests. The one GitHub write in
+the whole set is `doris-repo-review`'s PASS comment — posted only when the review finds no
+`Blocker` and no `Major`, and only after the user has seen the exact body and approved it.
 
 ## Install
 
