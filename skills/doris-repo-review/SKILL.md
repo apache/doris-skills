@@ -1,6 +1,6 @@
 ---
 name: doris-repo-review
-description: Given a PR URL (`/doris-repo-review https://github.com/apache/doris/pull/66807`), first check whether the current directory's branch and commit match that PR, and if they do not, align the current directory to the PR head without disturbing local work (refuse to switch when tracked files are modified and hand the decision back to the user); then review it with the same pipeline apache/doris CI runs (Code Review Runner) - main-agent risk scan, 1-3 full-review subagents plus risk-focused subagents, shared-ledger convergence (at most 3 rounds), and one English plus one Chinese review document written into review-docs/. A local run has no GitHub inline comments, so every finding must carry a path:line anchor and a verbatim snippet, verified by a script. Use when the user says "/doris-repo-review <PR URL>", "review this PR", "review it the way the CI pipeline does", or "review this PR locally like CI". Read-only review - no build, no tests, no changes to repository source, no comments posted to GitHub.
+description: Given a PR URL (`/doris-repo-review https://github.com/apache/doris/pull/66807`), first check whether the current directory's branch and commit match that PR, and if they do not, align the current directory to the PR head without disturbing local work (refuse to switch when tracked files are modified and hand the decision back to the user); then review it with the same pipeline apache/doris CI runs (Code Review Runner) - main-agent risk scan, 1-3 full-review subagents plus risk-focused subagents, shared-ledger convergence (at most 3 rounds), and one English plus one Chinese review document written into review-docs/. A local run has no GitHub inline comments, so every finding must carry a path:line anchor and a verbatim snippet, verified by a script. When the review passes (no Blocker and no Major), it also posts one strongly formatted, machine-readable PASS comment on the PR from the local gh account - review date, reviewed commit sha, status, model, and notes for maintainers - after showing the exact body to the user for confirmation. Use when the user says "/doris-repo-review <PR URL>", "review this PR", "review it the way the CI pipeline does", or "review this PR locally like CI". Read-only against the source - no build, no tests, no changes to repository files; the PASS comment is the only GitHub write, and a REQUEST_CHANGES review posts nothing at all.
 ---
 
 # Local pipeline-style Doris code review
@@ -35,6 +35,7 @@ $S/align-to-pr.sh <PR> --check                      # diagnosis only, changes no
 $S/align-to-pr.sh <PR> --out "$CTX/align.env"       # step 1: align the current directory
 $S/prepare-review-context.sh --ctx "$CTX" --align "$CTX/align.env"   # step 2: gather context
 python3 $S/verify-anchors.py --ctx "$CTX" --doc <en> --doc <zh>      # step 9: verify anchors
+$S/post-pass-comment.sh --ctx "$CTX" --model <id> ... --dry-run      # step 10: PASS comment
 ```
 
 | File | Purpose |
@@ -42,8 +43,10 @@ python3 $S/verify-anchors.py --ctx "$CTX" --doc <en> --doc <zh>      # step 9: v
 | `scripts/align-to-pr.sh` | Resolve the PR, diagnose how the current directory relates to it, align it to the PR head |
 | `scripts/prepare-review-context.sh` | Produce the authoritative diff, new-side line ranges, required AGENTS.md list, existing comments, ledger skeleton |
 | `scripts/verify-anchors.py` | Check that every `path:line` anchor really exists and that both documents expose the same finding IDs |
+| `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a pass |
 | `references/prompts.md` | Subagent prompt templates (CI wording, carried over verbatim) |
 | `references/doc-templates.md` | Templates for both documents, anchor format, verdict rule |
+| `references/pr-comment-format.md` | The `doris-repo-review/v1` comment schema, field meanings, and how a program reads it back |
 
 Requirements: `git`, an authenticated `gh` CLI, `jq`, and `python3`. The clone must have full
 history (`git fetch --unshallow` on a shallow one), because the authoritative diff is a three-dot
@@ -59,8 +62,13 @@ diff from the merge base.
    never go hunting for some other directory to work in. Every switch is
    `git checkout --detach`, so branch refs stay exactly where they were.
 2. **Read-only review.** Do not build, do not run tests, do not modify any source file in the
-   repository. The only writes allowed are the two documents under `review-docs/` and the context
-   directory `$CTX`. **Post nothing to GitHub.**
+   repository. The only local writes allowed are the two documents under `review-docs/` and the
+   context directory `$CTX`.
+   **Exactly one thing may ever be written to GitHub**: the PASS comment of step 10, only when the
+   verdict is APPROVE, only through `post-pass-comment.sh`, and only after the user has seen the
+   rendered body and said go. A REQUEST_CHANGES review posts nothing. No inline comments, no
+   review submission, no labels, no edits to the PR body - and never a comment on any PR other
+   than the one being reviewed.
 3. **The diff has exactly one source**: `$CTX/pr.diff` and `$CTX/pr_changed_files.txt`. Do not
    reach for `gh pr diff`, the web UI, or a hand-rolled `git diff` to get the change list - a
    different way of fetching it means a different base.
@@ -312,7 +320,50 @@ unchanged context lines - which is usually where a miscomputed line number shows
 
 ---
 
-## 10. Closing report
+## 10. Post the PASS comment to the PR
+
+**Only when the verdict is APPROVE** (no `Blocker`, no `Major`) and `verify-anchors.py` has
+passed. A REQUEST_CHANGES review posts nothing at all - say so in the closing report and stop.
+
+Write the notes, dry-run, get a go, post:
+
+```bash
+# At most 5 bullets, each anchored where it can be. Skip the file when there is nothing to say.
+cat > "$CTX/pr-comment-notes.md" <<'EOF'
+- `fe/fe-core/src/main/java/org/apache/doris/X.java:214` — <what the maintainer should know>
+EOF
+
+$S/post-pass-comment.sh --ctx "$CTX" \
+    --model "<exact model id of this session>" --effort "${CLAUDE_EFFORT:-unknown}" \
+    --findings <blocker>,<major>,<minor>,<nit> \
+    --rounds <r> --converged <true|false> \
+    --notes-file "$CTX/pr-comment-notes.md" \
+    --dry-run
+```
+
+- **`--model` is the exact model id of the session doing the review** (`claude-opus-5[1m]`,
+  `gpt-5.6-sol`, …), taken from what this session was told about itself - never a guess, never a
+  bare family name. `--effort` comes from `$CLAUDE_EFFORT`. The comment is a public, signed
+  statement about who reviewed the code; both fields are what make it auditable.
+- The dry run runs **every** precondition and prints the exact body. **Show that body to the user
+  and wait for a go**, then re-run the identical command **without `--dry-run`**. Never post
+  without that confirmation.
+- The script refuses to post when: any `Blocker`/`Major` is present; the live PR head no longer
+  equals the reviewed commit; the PR is not open (`--allow-closed` overrides); the notes are
+  malformed or more than five; `converged: false` came without a note. A refusal is a real signal
+  - relay it, do not work around it.
+- **The PR head moved** means the author pushed during the review: the review is stale, so re-run
+  the whole skill instead of posting.
+- An earlier v1 comment from the same account for the **same** commit is edited in place; a new
+  commit gets a new comment, so each push leaves exactly one record.
+- Findings counts, rounds and `converged` must match the documents written in step 9. The counts
+  are of *accepted* findings, not of candidates.
+- `references/pr-comment-format.md` holds the schema, the field meanings, and the parser snippet.
+  **Never hand-write or hand-edit this comment** - the format is a contract other programs read.
+
+---
+
+## 11. Closing report
 
 Tell the user:
 
@@ -320,15 +371,17 @@ Tell the user:
    severity, and whether the rounds converged.
 2. The `branch check` / `commit check` results - especially `ahead:N` (unpushed commits that were
    not reviewed).
-3. **Where the current directory now stands**: with `ALIGN_MODE=switched` it is detached on the PR
+3. **What happened to the PASS comment**: the URL when one was posted or updated, or the reason
+   nothing was posted (the verdict was REQUEST_CHANGES, the PR head moved, the user said no).
+4. **Where the current directory now stands**: with `ALIGN_MODE=switched` it is detached on the PR
    head, and `git checkout <PREV_REF>` restores it. **Do not switch back automatically** - the user
    may still want to read the code.
-4. `review-docs/` **is not gitignored in the doris repository**, so **do not commit it
+5. `review-docs/` **is not gitignored in the doris repository**, so **do not commit it
    automatically**; leave that to the user.
 
 ---
 
-## 11. Mapping to the CI pipeline
+## 12. Mapping to the CI pipeline
 
 | CI (code-review-runner.yml) | Local |
 |---|---|
@@ -342,11 +395,12 @@ Tell the user:
 | Single-file ledger with sections | A `ledger/` directory, one file per owner |
 | Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Identical |
 | `gh pr review` / Reviews API posting inline comments | **Two `review-docs/` documents (EN + ZH) with `path:line` anchors** |
+| CI's review verdict is visible on the PR itself | On a pass, one `doris-repo-review/v1` comment from the local account (commit sha, timestamp, model, findings, notes); on REQUEST_CHANGES, nothing - the documents stay local |
 | 60-minute timeout | No hard timeout, but likewise do not let one round turn into unbounded digging |
 
 ---
 
-## 12. Common traps
+## 13. Common traps
 
 - **The local checkout is ahead of the PR head.** `commit check: ahead:N` means there are unpushed
   commits and **they are not part of the review**. This is the easiest thing for a reader to
@@ -370,3 +424,13 @@ Tell the user:
   dropped.
 - **Do not commit `review-docs/`.** The doris repository does not ignore it, and an automatic commit
   would slip it into the PR.
+- **The PASS comment is public and signed with the user's name.** It goes to a public Apache PR
+  from their GitHub account, so it is posted only after they have seen the exact body. Treat a
+  script refusal as final rather than something to route around, and never "tidy up" the rendered
+  body by hand - a program reads it.
+- **A pass is not a merge approval.** The comment states that a local pipeline review found no
+  Blocker and no Major on one specific commit. It carries no CI signal and no Apache sign-off, and
+  the `<sub>` disclaimer line says exactly that - keep it.
+- **Counts drift between the documents and the comment.** `--findings` must be the accepted
+  findings of step 9, not the candidate count from the ledger; re-count from the written documents
+  before posting.
