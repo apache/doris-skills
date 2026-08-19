@@ -1,6 +1,6 @@
 ---
 name: doris-repo-review
-description: Review an Apache Doris PR from a local clone with the same multi-agent, shared-ledger convergence workflow as the CI Code Review Runner. Use when the user supplies a PR to `/doris-repo-review`, asks to review a Doris PR locally, or asks for the CI-style review flow. Safely align only the current worktree to the exact PR head, refuse to disturb tracked local changes, write equivalent English and Chinese review documents with verified path-line anchors, and never build, test, or edit source. Treat a review as pipeline-equivalent only when an explicitly selected Opus 5, Fable 5, or GPT-5.6 Sol reviewer runs at xhigh or higher.
+description: Review an Apache Doris PR from a local clone with the same multi-agent, shared-ledger convergence workflow as the CI Code Review Runner. Use when the user supplies a PR to `/doris-repo-review`, asks to review a Doris PR locally, or asks for the CI-style review flow. Safely align only the current worktree to the exact PR head, refuse to disturb tracked local changes, write equivalent English and Chinese review documents with verified path-line anchors, and never build, test, or edit source. Treat a review as pipeline-equivalent only when an explicitly selected Opus 5, Fable 5, or GPT-5.6 Sol reviewer runs at xhigh or higher. After a converged APPROVE result, automatically post one machine-readable PASS comment bound to the reviewed commit.
 ---
 
 # Local pipeline-style Doris code review
@@ -34,8 +34,9 @@ Let `$S` be this skill's own `scripts/` directory (with a default Claude Code in
 $S/align-to-pr.sh <PR> --check                      # diagnosis only, changes nothing
 $S/align-to-pr.sh <PR> --out "$CTX/align.env"       # step 1: align the current directory
 $S/prepare-review-context.sh --ctx "$CTX" --align "$CTX/align.env"   # step 2: gather context
-python3 $S/verify-anchors.py --ctx "$CTX" --doc <en> --doc <zh>      # step 9: verify anchors
-$S/post-pass-comment.sh --ctx "$CTX" --model <id> ... --dry-run      # step 10: PASS comment
+python3 $S/verify-review-docs.py --ctx "$CTX" --doc <en> --doc <zh>  # step 9: verify documents
+$S/record-review-runtime.sh --ctx "$CTX" --model <id> --effort <effort>
+$S/post-pass-comment.sh --ctx "$CTX"                                 # step 10: auto-post PASS
 $S/review-runtime-policy.sh check <model> <effort>                    # reviewer eligibility
 ```
 
@@ -43,7 +44,8 @@ $S/review-runtime-policy.sh check <model> <effort>                    # reviewer
 |---|---|
 | `scripts/align-to-pr.sh` | Resolve the PR, diagnose how the current directory relates to it, align it to the PR head |
 | `scripts/prepare-review-context.sh` | Produce the authoritative diff, new-side line ranges, required AGENTS.md list, existing comments, ledger skeleton |
-| `scripts/verify-anchors.py` | Check that every `path:line` anchor really exists and that both documents expose the same finding IDs |
+| `scripts/verify-review-docs.py` | Validate commit, anchors, EN/ZH agreement, verdict, findings, rounds, and convergence |
+| `scripts/record-review-runtime.sh` | Record the qualified reviewer model, effort, and exact commit |
 | `scripts/review-runtime-policy.sh` | The exact model and effort allowlist for a pipeline-equivalent review |
 | `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a pass |
 | `references/prompts.md` | Subagent prompt templates (CI wording, carried over verbatim) |
@@ -72,9 +74,9 @@ pipeline-equivalent PASS comment.
 2. **Read-only review.** Do not build, do not run tests, do not modify any source file in the
    repository. The only local writes allowed are the two documents under `review-docs/` and the
    context directory `$CTX`.
-   **Exactly one thing may ever be written to GitHub**: the PASS comment of step 10, only when the
-   verdict is APPROVE, only through `post-pass-comment.sh`, and only after the user has seen the
-   rendered body and said go. A REQUEST_CHANGES review posts nothing. No inline comments, no
+   **Exactly one thing may ever be written to GitHub**: the PASS comment of step 10, automatically
+   after an explicitly requested review reaches a converged APPROVE result, and only through
+   `post-pass-comment.sh`. A REQUEST_CHANGES review posts nothing. No inline comments, no
    review submission, no labels, no edits to the PR body - and never a comment on any PR other
    than the one being reviewed.
 3. **The diff has exactly one source**: `$CTX/pr.diff` and `$CTX/pr_changed_files.txt`. Do not
@@ -90,7 +92,7 @@ pipeline-equivalent PASS comment.
    "Considered and Dismissed". Silently dropping a suspicion means the review is not finished.
 7. **There are no inline comments locally**, so an anchor is the reader's only way in. Every
    finding must carry a `path:line` anchor (new-side line numbers) plus a verbatim snippet, and
-   the documents must pass `verify-anchors.py` at the end.
+   the documents must pass `verify-review-docs.py` at the end.
 
 ---
 
@@ -168,6 +170,15 @@ Output (under `$CTX`):
 
 If `BASE_SOURCE` is not `PR base sha (matches CI)`, the baseline differs from CI's and the
 documents must say so.
+
+Record the qualified runtime selected in step 0 before reading source:
+
+```bash
+$S/record-review-runtime.sh --ctx "$CTX" --model "<exact model>" --effort "<exact effort>"
+```
+
+If it refuses the runtime, continue with local documents only and do not post a pipeline-equivalent
+PASS comment.
 
 ---
 
@@ -318,23 +329,22 @@ When they are written, running the verifier is **mandatory**; if it fails, fix t
 re-run until it passes:
 
 ```bash
-python3 $S/verify-anchors.py --ctx "$CTX" \
+python3 $S/verify-review-docs.py --ctx "$CTX" \
     --doc review-docs/pr-<N>-review.en.md \
     --doc review-docs/pr-<N>-review.zh.md
 ```
 
-It checks that anchor paths exist, that line numbers are inside the file, that every finding has at
-least one anchor, and that the EN and ZH finding-ID sets match; it also flags anchors pointing at
-unchanged context lines - which is usually where a miscomputed line number shows up.
+It validates the reviewed head, anchors, EN/ZH finding order and severity, verdict, rounds, and
+convergence. Fix every error before continuing.
 
 ---
 
 ## 10. Post the PASS comment to the PR
 
-**Only when the verdict is APPROVE** (no `Blocker`, no `Major`) and `verify-anchors.py` has
-passed. A REQUEST_CHANGES review posts nothing at all - say so in the closing report and stop.
+**Only when the verdict is APPROVE**, the review converged, and step 9 passed. A
+REQUEST_CHANGES or non-converged review posts nothing - say so in the closing report and stop.
 
-Write the notes, dry-run, get a go, post:
+Write optional notes and run the poster once:
 
 ```bash
 # At most 5 bullets, each anchored where it can be. Skip the file when there is nothing to say.
@@ -343,32 +353,14 @@ cat > "$CTX/pr-comment-notes.md" <<'EOF'
 EOF
 
 $S/post-pass-comment.sh --ctx "$CTX" \
-    --model "<exact model id of this session>" --effort "${CLAUDE_EFFORT:-unknown}" \
-    --findings <blocker>,<major>,<minor>,<nit> \
-    --rounds <r> --converged <true|false> \
-    --notes-file "$CTX/pr-comment-notes.md" \
-    --dry-run
+    --notes-file "$CTX/pr-comment-notes.md"
 ```
 
-- **`--model` is the exact model id of the session doing the review** (`claude-opus-5[1m]`,
-  `gpt-5.6-sol`, …), taken from what this session was told about itself - never a guess, never a
-  bare family name. `--effort` comes from `$CLAUDE_EFFORT`. The comment is a public, signed
-  statement about who reviewed the code; both fields are what make it auditable.
-- The dry run runs **every** precondition and prints the exact body. **Show that body to the user
-  and wait for a go**, then re-run the identical command **without `--dry-run`**. Never post
-  without that confirmation.
-- The script refuses to post when: any `Blocker`/`Major` is present; the live PR head no longer
-  equals the reviewed commit; the PR is not open (`--allow-closed` overrides); the notes are
-  malformed or more than five; `converged: false` came without a note. A refusal is a real signal
-  - relay it, do not work around it.
-- **The PR head moved** means the author pushed during the review: the review is stale, so re-run
-  the whole skill instead of posting.
-- An earlier v1 comment from the same account for the **same** commit is edited in place; a new
-  commit gets a new comment, so each push leaves exactly one record.
-- Findings counts, rounds and `converged` must match the documents written in step 9. The counts
-  are of *accepted* findings, not of candidates.
-- `references/pr-comment-format.md` holds the schema, the field meanings, and the parser snippet.
-  **Never hand-write or hand-edit this comment** - the format is a contract other programs read.
+The poster reads model, effort, and commit from `review-runtime.json`; it invokes
+`verify-review-docs.py` itself for verdict, findings, rounds, and convergence; then it rechecks the
+live PR head. A refusal is final. The normal flow posts immediately; `--dry-run` exists only for
+maintainer testing. Same account plus same commit updates the existing comment, while a new commit
+creates a new one. Keep the schema in `references/pr-comment-format.md` machine-generated.
 
 ---
 
@@ -381,7 +373,7 @@ Tell the user:
 2. The `branch check` / `commit check` results - especially `ahead:N` (unpushed commits that were
    not reviewed).
 3. **What happened to the PASS comment**: the URL when one was posted or updated, or the reason
-   nothing was posted (the verdict was REQUEST_CHANGES, the PR head moved, the user said no).
+   nothing was posted (REQUEST_CHANGES, non-convergence, unqualified runtime, or moved PR head).
 4. **Where the current directory now stands**: with `ALIGN_MODE=switched` it is detached on the PR
    head, and `git checkout <PREV_REF>` restores it. **Do not switch back automatically** - the user
    may still want to read the code.
@@ -404,7 +396,7 @@ Tell the user:
 | Single-file ledger with sections | A `ledger/` directory, one file per owner |
 | Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Identical |
 | `gh pr review` / Reviews API posting inline comments | **Two `review-docs/` documents (EN + ZH) with `path:line` anchors** |
-| CI's review verdict is visible on the PR itself | On a pass, one `doris-repo-review/v1` comment from the local account (commit sha, timestamp, model, findings, notes); on REQUEST_CHANGES, nothing - the documents stay local |
+| CI's review verdict is visible on the PR itself | On a qualified converged pass, one automatic `doris-repo-review/v1` comment bound to the exact commit; otherwise nothing |
 | 60-minute timeout | No hard timeout, but likewise do not let one round turn into unbounded digging |
 
 ---
@@ -433,13 +425,7 @@ Tell the user:
   dropped.
 - **Do not commit `review-docs/`.** The doris repository does not ignore it, and an automatic commit
   would slip it into the PR.
-- **The PASS comment is public and signed with the user's name.** It goes to a public Apache PR
-  from their GitHub account, so it is posted only after they have seen the exact body. Treat a
-  script refusal as final rather than something to route around, and never "tidy up" the rendered
-  body by hand - a program reads it.
-- **A pass is not a merge approval.** The comment states that a local pipeline review found no
-  Blocker and no Major on one specific commit. It carries no CI signal and no Apache sign-off, and
-  the `<sub>` disclaimer line says exactly that - keep it.
-- **Counts drift between the documents and the comment.** `--findings` must be the accepted
-  findings of step 9, not the candidate count from the ledger; re-count from the written documents
-  before posting.
+- **The PASS comment is public and signed with the user's name.** Invoking this skill for a PR
+  authorizes one automatic comment after a qualified converged pass. Never edit the body by hand.
+- **A pass is not a human merge approval.** Repository policy may accept the receipt for its exact
+  commit, but it carries no Apache sign-off. Keep the `<sub>` disclaimer.

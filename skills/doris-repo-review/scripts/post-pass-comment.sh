@@ -2,32 +2,21 @@
 # Render and post the machine-readable PASS comment of a doris-repo-review run.
 #
 # Usage:
-#   post-pass-comment.sh --ctx <dir> --model <id> [options]
+#   post-pass-comment.sh --ctx <dir> [options]
 #
-#   --ctx <dir>            review context directory (must contain meta.env)
-#   --model <id>           exact model id of the reviewing agent, e.g. claude-opus-5[1m]
-#   --effort <s>           reasoning effort (default: $CLAUDE_EFFORT, else "unknown")
-#   --findings b,m,mi,n    blocker,major,minor,nit counts (default 0,0,0,0)
-#   --rounds <n>           convergence rounds actually run (default 1)
-#   --converged true|false (default true)
+#   --ctx <dir>            review context with meta.env, review-runtime.json, and EN/ZH docs
 #   --notes-file <f>       markdown bullet list for "Notes for maintainers"
 #   --dry-run              run every precondition, render the body, post nothing
 #   --force-new            always create a new comment, never update in place
 #   --allow-closed         allow posting on a non-open PR
 #
-# Only a PASS is ever posted: blocker and major counts must both be 0, which is
-# the same verdict rule the review documents use. The body layout is fixed here
-# on purpose - the agent supplies the notes, never the format.
+# Runtime fields come from review-runtime.json. Review fields come directly from
+# verify-review-docs.py. The agent supplies notes, never receipt fields or format.
 #
 # Rendered body: <ctx>/pr-comment.md   Posted URL: <ctx>/pr-comment.url
 set -euo pipefail
 
 CTX=""
-MODEL=""
-EFFORT="${CLAUDE_EFFORT:-unknown}"
-FINDINGS="0,0,0,0"
-ROUNDS="1"
-CONVERGED="true"
 NOTES_FILE=""
 DRY_RUN=0
 FORCE_NEW=0
@@ -36,11 +25,6 @@ ALLOW_CLOSED=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --ctx)          CTX="$2"; shift 2 ;;
-        --model)        MODEL="$2"; shift 2 ;;
-        --effort)       EFFORT="$2"; shift 2 ;;
-        --findings)     FINDINGS="$2"; shift 2 ;;
-        --rounds)       ROUNDS="$2"; shift 2 ;;
-        --converged)    CONVERGED="$2"; shift 2 ;;
         --notes-file)   NOTES_FILE="$2"; shift 2 ;;
         --dry-run)      DRY_RUN=1; shift ;;
         --force-new)    FORCE_NEW=1; shift ;;
@@ -58,7 +42,8 @@ SCHEMA='doris-repo-review/v1'
 [ -n "$CTX" ] || { echo "ERROR: --ctx is required." >&2; exit 2; }
 META="$CTX/meta.env"
 [ -f "$META" ] || { echo "ERROR: $META not found - run prepare-review-context.sh first." >&2; exit 2; }
-[ -n "$MODEL" ] || { echo "ERROR: --model is required; state the exact model id, never a guess." >&2; exit 2; }
+RUNTIME_FILE="$CTX/review-runtime.json"
+[ -f "$RUNTIME_FILE" ] || { echo "ERROR: $RUNTIME_FILE not found - record the qualified reviewer first." >&2; exit 2; }
 command -v gh >/dev/null 2>&1 || { echo "ERROR: gh CLI is required." >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required." >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is required." >&2; exit 1; }
@@ -69,26 +54,48 @@ PR_NUMBER="$(read_meta PR_NUMBER)"
 PR_URL="$(read_meta PR_URL)"
 BASE_SHA="$(read_meta BASE_SHA)"
 HEAD_SHA="$(read_meta HEAD_SHA)"
+NORMALIZED_HEAD_SHA="$(printf '%s' "$HEAD_SHA" | tr '[:upper:]' '[:lower:]')"
 REPO_ROOT="$(read_meta REPO_ROOT)"
+DOCS_ROOT="$(read_meta DOCS_ROOT)"
 
 [ -n "$PR_NUMBER" ] || { echo "ERROR: meta.env has no PR_NUMBER - this review is not attached to a PR." >&2; exit 2; }
 [ -n "$UPSTREAM_REPO" ] || { echo "ERROR: meta.env has no UPSTREAM_REPO." >&2; exit 2; }
 [ -n "$PR_URL" ] || PR_URL="https://github.com/${UPSTREAM_REPO}/pull/${PR_NUMBER}"
 
-case "$CONVERGED" in true|false) ;; *) echo "ERROR: --converged takes true or false." >&2; exit 2 ;; esac
-[[ "$ROUNDS" =~ ^[0-9]+$ ]] || { echo "ERROR: --rounds takes a number." >&2; exit 2; }
-IFS=',' read -r F_BLOCKER F_MAJOR F_MINOR F_NIT <<<"$FINDINGS"
-for v in "$F_BLOCKER" "$F_MAJOR" "$F_MINOR" "$F_NIT"; do
-    [[ "$v" =~ ^[0-9]+$ ]] || { echo "ERROR: --findings takes blocker,major,minor,nit as four numbers." >&2; exit 2; }
-done
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MODEL="$(jq -er '.model | strings' "$RUNTIME_FILE")" || { echo "ERROR: invalid runtime model." >&2; exit 2; }
+EFFORT="$(jq -er '.effort | strings' "$RUNTIME_FILE")" || { echo "ERROR: invalid runtime effort." >&2; exit 2; }
+RUNTIME_COMMIT="$(jq -er '.commit | strings' "$RUNTIME_FILE")" || { echo "ERROR: invalid runtime commit." >&2; exit 2; }
+"$SCRIPT_DIR/review-runtime-policy.sh" check "$MODEL" "$EFFORT" >/dev/null
+[ "$RUNTIME_COMMIT" = "$NORMALIZED_HEAD_SHA" ] || {
+    echo "ERROR: qualified reviewer runtime was recorded for $RUNTIME_COMMIT, not $NORMALIZED_HEAD_SHA." >&2
+    exit 2
+}
 
-# The verdict rule: any Blocker or Major means REQUEST_CHANGES, and a
-# REQUEST_CHANGES review posts nothing at all.
-if [ "$F_BLOCKER" -gt 0 ] || [ "$F_MAJOR" -gt 0 ]; then
-    echo "ERROR: $F_BLOCKER blocker(s) and $F_MAJOR major(s) mean REQUEST_CHANGES." >&2
-    echo "       This skill posts a comment only when the review passes. Nothing was posted." >&2
+[ -n "$DOCS_ROOT" ] || DOCS_ROOT="$REPO_ROOT"
+EN_DOC="$DOCS_ROOT/review-docs/pr-${PR_NUMBER}-review.en.md"
+ZH_DOC="$DOCS_ROOT/review-docs/pr-${PR_NUMBER}-review.zh.md"
+RESULT_JSON="$(python3 "$SCRIPT_DIR/verify-review-docs.py" --json --ctx "$CTX" \
+    --doc "$EN_DOC" --doc "$ZH_DOC")" || {
+    echo "ERROR: review documents failed verification. Nothing was posted." >&2
+    exit 2
+}
+RESULT_COMMIT="$(jq -er '.commit | strings' <<<"$RESULT_JSON")"
+VERDICT="$(jq -er '.verdict | strings' <<<"$RESULT_JSON")"
+ROUNDS="$(jq -er '.rounds | numbers' <<<"$RESULT_JSON")"
+CONVERGED="$(jq -r '.converged | if . == true then "true" else "false" end' <<<"$RESULT_JSON")"
+F_BLOCKER="$(jq -er '.findings.blocker | numbers' <<<"$RESULT_JSON")"
+F_MAJOR="$(jq -er '.findings.major | numbers' <<<"$RESULT_JSON")"
+F_MINOR="$(jq -er '.findings.minor | numbers' <<<"$RESULT_JSON")"
+F_NIT="$(jq -er '.findings.nit | numbers' <<<"$RESULT_JSON")"
+
+[ "$RESULT_COMMIT" = "$NORMALIZED_HEAD_SHA" ] || { echo "ERROR: review documents target another commit." >&2; exit 2; }
+[ "$VERDICT" = "APPROVE" ] || { echo "ERROR: review verdict is $VERDICT. Nothing was posted." >&2; exit 1; }
+[ "$CONVERGED" = "true" ] || { echo "ERROR: review did not converge. Nothing was posted." >&2; exit 1; }
+[ "$F_BLOCKER" -eq 0 ] && [ "$F_MAJOR" -eq 0 ] || {
+    echo "ERROR: Blocker or Major findings cannot produce a PASS comment." >&2
     exit 1
-fi
+}
 
 # ------------------------------------------------------------------------- notes
 NOTES_BODY="_None._"
@@ -112,11 +119,6 @@ if [ -n "$NOTES_FILE" ]; then
         NOTES_BODY="$(cat "$NOTES_FILE")"
     fi
 fi
-if [ "$CONVERGED" = "false" ] && [ "$NOTE_COUNT" -eq 0 ]; then
-    echo "ERROR: converged=false needs at least one note saying what was left open." >&2
-    exit 2
-fi
-
 # ------------------------------------------------------------------ live PR state
 PR_TSV="$(gh api "repos/${UPSTREAM_REPO}/pulls/${PR_NUMBER}" --jq '[.head.sha, .state] | @tsv')" || {
     echo "ERROR: cannot read ${UPSTREAM_REPO}#${PR_NUMBER}." >&2; exit 1; }
@@ -163,7 +165,7 @@ REVIEWED_AT="$(python3 -c "import datetime; print(datetime.datetime.now().astime
 
 # ------------------------------------------------------------------ render body
 FENCE='```'
-DISCLAIMER='<sub>Reviewed locally with the `doris-repo-review` pipeline (a local port of `.github/workflows/code-review-runner.yml`). This is not a CI status check.</sub>'
+DISCLAIMER='<sub>Reviewed locally with the `doris-repo-review` pipeline. Repository policy may accept this receipt for the matching commit; it is not a human Apache approval.</sub>'
 BODY_FILE="$CTX/pr-comment.md"
 cat > "$BODY_FILE" <<EOF
 ${BEGIN_MARKER}

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-"$(cd "$(dirname "$0")" && pwd)/runtime-policy.sh"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+for test in runtime-policy runtime-attestation review-documents post-comment; do
+    "$DIR/$test.sh"
+done
