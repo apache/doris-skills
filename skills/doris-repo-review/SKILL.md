@@ -1,6 +1,6 @@
 ---
 name: doris-repo-review
-description: Given a PR URL (`/doris-repo-review https://github.com/apache/doris/pull/66807`), first check whether the current directory's branch and commit match that PR, and if they do not, align the current directory to the PR head without disturbing local work (refuse to switch when tracked files are modified and hand the decision back to the user); then review it with the same pipeline apache/doris CI runs (Code Review Runner) - main-agent risk scan, 1-3 full-review subagents plus risk-focused subagents, shared-ledger convergence (at most 3 rounds), and one English plus one Chinese review document written into review-docs/. A local run has no GitHub inline comments, so every finding must carry a path:line anchor and a verbatim snippet, verified by a script. When the review passes (no Blocker and no Major), it also posts one strongly formatted, machine-readable PASS comment on the PR from the local gh account - review date, reviewed commit sha, status, model, and notes for maintainers - after showing the exact body to the user for confirmation. Use when the user says "/doris-repo-review <PR URL>", "review this PR", "review it the way the CI pipeline does", or "review this PR locally like CI". Read-only against the source - no build, no tests, no changes to repository files; the PASS comment is the only GitHub write, and a REQUEST_CHANGES review posts nothing at all.
+description: Review an Apache Doris PR from a local clone with the same multi-agent, shared-ledger convergence workflow as the CI Code Review Runner. Use when the user supplies a PR to `/doris-repo-review`, asks to review a Doris PR locally, or asks for the CI-style review flow. Safely align only the current worktree to the exact PR head, refuse to disturb tracked local changes, write equivalent English and Chinese review documents with verified path-line anchors, and never build, test, or edit source. Treat a review as pipeline-equivalent only when an explicitly selected Opus 5, Fable 5, or GPT-5.6 Sol reviewer runs at xhigh or higher.
 ---
 
 # Local pipeline-style Doris code review
@@ -36,6 +36,7 @@ $S/align-to-pr.sh <PR> --out "$CTX/align.env"       # step 1: align the current 
 $S/prepare-review-context.sh --ctx "$CTX" --align "$CTX/align.env"   # step 2: gather context
 python3 $S/verify-anchors.py --ctx "$CTX" --doc <en> --doc <zh>      # step 9: verify anchors
 $S/post-pass-comment.sh --ctx "$CTX" --model <id> ... --dry-run      # step 10: PASS comment
+$S/review-runtime-policy.sh check <model> <effort>                    # reviewer eligibility
 ```
 
 | File | Purpose |
@@ -43,10 +44,12 @@ $S/post-pass-comment.sh --ctx "$CTX" --model <id> ... --dry-run      # step 10: 
 | `scripts/align-to-pr.sh` | Resolve the PR, diagnose how the current directory relates to it, align it to the PR head |
 | `scripts/prepare-review-context.sh` | Produce the authoritative diff, new-side line ranges, required AGENTS.md list, existing comments, ledger skeleton |
 | `scripts/verify-anchors.py` | Check that every `path:line` anchor really exists and that both documents expose the same finding IDs |
+| `scripts/review-runtime-policy.sh` | The exact model and effort allowlist for a pipeline-equivalent review |
 | `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a pass |
 | `references/prompts.md` | Subagent prompt templates (CI wording, carried over verbatim) |
 | `references/doc-templates.md` | Templates for both documents, anchor format, verdict rule |
 | `references/pr-comment-format.md` | The `doris-repo-review/v1` comment schema, field meanings, and how a program reads it back |
+| `references/qualified-runtime.md` | How to select or delegate to a qualified lead and coverage reviewers |
 
 Requirements: `git`, an authenticated `gh` CLI, `jq`, and `python3`. The clone must have full
 history (`git fetch --unshallow` on a shallow one), because the authoritative diff is a three-dot
@@ -55,6 +58,11 @@ diff from the merge base.
 ---
 
 ## 0. Ground rules
+
+Before reading source, read `references/qualified-runtime.md` and establish a qualified lead
+reviewer. If it requires delegation, the caller delegates the whole task and does no review itself.
+If no qualified runtime is available, produce local documents only and do not post a
+pipeline-equivalent PASS comment.
 
 1. **Touch only the current directory, and never disturb local work.** When the current directory
    has **modified tracked files**, refuse to switch, report the situation, and let the user commit
@@ -204,7 +212,8 @@ this step.
 ## 5. Spawn the subagents
 
 Split along the coverage the code-review skill requires, and **send them all in one message so
-they run concurrently** (general-purpose subagents):
+they run concurrently** (general-purpose subagents). Use the same qualified model and effort as
+the lead; follow the coverage-reviewer rules in `references/qualified-runtime.md`:
 
 | Type | Count | Responsibility |
 |---|---|---|
@@ -385,7 +394,7 @@ Tell the user:
 
 | CI (code-review-runner.yml) | Local |
 |---|---|
-| `codex exec --goal` (gpt-5.6-sol, xhigh) | The main agent of this session |
+| `codex exec --goal` (gpt-5.6-sol, xhigh) | An explicitly selected qualified lead reviewer |
 | checkout the PR head sha | `align-to-pr.sh` detaches **the current directory** to the same sha |
 | `git diff BASE...HEAD` as the authoritative diff | Same, produced by `prepare-review-context.sh` |
 | "PR changed while preparing" guard | The fetched sha must equal the API head sha, otherwise a re-run is required |

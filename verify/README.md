@@ -8,6 +8,13 @@ real Apache Doris cluster and against `doriscli`. Three layers:
 | **L1 — knowledge** | Every DDL template (T1–T5) and DDL gotcha in `doris-best-practices/SKILL.md` is accepted / rejected exactly as claimed | `mysql` client | ✅ `run.sh` |
 | **L2 — CLI contract** | Every command + JSON field in `CLI-CONTRACT.md` really exists in `doriscli` | `doriscli --format json` + `jq` | ✅ `cli/run.sh` |
 | **L3 — behavior** | Triggering, evidence-first / safety guardrails, end-to-end DDL that loops back through L1 | nested `claude -p` | ✅ `behavior/` (`run.sh` + `e2e-advisor-ddl.sh` + `triggering.sh`) |
+| **Repo review** | Exact model and effort policy for pipeline-equivalent local reviews | shell | ✅ `repo-review/run.sh` |
+
+Run the repository-review policy tests without a cluster or GitHub access:
+
+```bash
+./verify/repo-review/run.sh
+```
 
 ## Run L1
 
