@@ -11,8 +11,8 @@ HEAD_SHA="1111111111111111111111111111111111111111"
 OTHER_SHA="3333333333333333333333333333333333333333"
 PASS_COUNT=0
 mkdir -p "$REPO/src" "$REPO/review-docs" "$CTX"
-printf 'int answer = 42;\n' > "$REPO/src/Foo.java"
-printf 'src/Foo.java\t1\t1\n' > "$CTX/changed_line_ranges.tsv"
+printf 'int answer = 42;\nint other = 7;\n' > "$REPO/src/Foo.java"
+printf 'src/Foo.java\t1\t2\n' > "$CTX/changed_line_ranges.tsv"
 
 pass() { PASS_COUNT=$((PASS_COUNT + 1)); echo "PASS: $1"; }
 fail() { echo "FAIL: $1" >&2; exit 1; }
@@ -38,7 +38,9 @@ EOF
 
 write_docs() {
     local head="$1" verdict="$2" en_severity="$3" zh_severity="$4"
-    local rounds="$5" en_convergence="$6" zh_convergence="$7" anchor="${8:-1}"
+    local rounds="$5" en_convergence="$6" zh_convergence="$7"
+    local en_anchor="${8:-1}"
+    local zh_anchor="${9:-$en_anchor}"
     cat > "$REPO/review-docs/pr-123-review.en.md" <<EOF
 # Code Review — PR #123: fixture
 
@@ -53,7 +55,7 @@ write_docs() {
 ### F-01 · fixture finding
 
 - **Severity**: $en_severity
-- **Where**: \`src/Foo.java:$anchor\`
+- **Where**: \`src/Foo.java:$en_anchor\`
 EOF
     cat > "$REPO/review-docs/pr-123-review.zh.md" <<EOF
 # 代码评审 — PR #123：fixture
@@ -69,7 +71,7 @@ EOF
 ### F-01 · fixture finding
 
 - **等级**：$zh_severity
-- **位置**：\`src/Foo.java:$anchor\`
+- **位置**：\`src/Foo.java:$zh_anchor\`
 EOF
 }
 
@@ -93,11 +95,17 @@ expect_failure "document commit must match context" "context head" verify_json
 write_docs "$HEAD_SHA" APPROVE Minor Nit 2 converged 已收敛
 expect_failure "EN and ZH severities must agree" "severities differ" verify_json
 
+write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛 1 2
+expect_failure "EN and ZH anchors must agree" "anchors differ" verify_json
+
 write_docs "$HEAD_SHA" APPROVE Minor Minor 4 converged 已收敛
 expect_failure "rounds must stay within the cap" "between 1 and 3" verify_json
 
-write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛 2
+write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛 3
 expect_failure "anchors must resolve" "out of range" verify_json
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛 2-1
+expect_failure "anchor ranges cannot run backwards" "end before its start" verify_json
 
 write_docs "$HEAD_SHA" REQUEST_CHANGES Major Major 2 converged 已收敛
 RESULT="$(verify_json)"

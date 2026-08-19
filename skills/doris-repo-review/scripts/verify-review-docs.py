@@ -174,6 +174,16 @@ def severity_counts(document: Document) -> dict[str, int]:
     }
 
 
+def finding_anchor_keys(document: Document, finding: str) -> list[tuple[str, int, int]]:
+    """Return stable semantic anchors, excluding document source-line metadata."""
+    return sorted(
+        {
+            (anchor.path, anchor.start, anchor.end or anchor.start)
+            for anchor in document.finding_anchors.get(finding, [])
+        }
+    )
+
+
 def verify_anchors(
     document: Document,
     repo_root: Path,
@@ -183,6 +193,12 @@ def verify_anchors(
 ) -> None:
     line_counts: dict[str, int] = {}
     for anchor in document.anchors:
+        if anchor.end is not None and anchor.end < anchor.start:
+            errors.append(
+                f"{document.path}:{anchor.source_line}: {anchor.path}:{anchor.start}-{anchor.end} "
+                "has an end before its start"
+            )
+            continue
         target = repo_root / anchor.path
         if not target.is_file():
             errors.append(f"{document.path}:{anchor.source_line}: anchor path does not exist -> {anchor.path}")
@@ -253,6 +269,9 @@ def main() -> int:
             errors.append("EN and ZH finding IDs or order differ")
         if left.severities != right.severities:
             errors.append("EN and ZH finding severities differ")
+        for finding in sorted(set(left.finding_ids) & set(right.finding_ids)):
+            if finding_anchor_keys(left, finding) != finding_anchor_keys(right, finding):
+                errors.append(f"EN and ZH anchors differ for {finding}")
         if (left.head_sha, left.verdict, left.rounds, left.converged) != (
             right.head_sha,
             right.verdict,

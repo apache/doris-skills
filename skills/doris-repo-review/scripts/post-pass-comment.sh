@@ -7,8 +7,6 @@
 #   --ctx <dir>            review context with meta.env, review-runtime.json, and EN/ZH docs
 #   --notes-file <f>       markdown bullet list for "Notes for maintainers"
 #   --dry-run              run every precondition, render the body, post nothing
-#   --force-new            always create a new comment, never update in place
-#   --allow-closed         allow posting on a non-open PR
 #
 # Runtime fields come from review-runtime.json. Review fields come directly from
 # verify-review-docs.py. The agent supplies notes, never receipt fields or format.
@@ -19,16 +17,12 @@ set -euo pipefail
 CTX=""
 NOTES_FILE=""
 DRY_RUN=0
-FORCE_NEW=0
-ALLOW_CLOSED=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --ctx)          CTX="$2"; shift 2 ;;
         --notes-file)   NOTES_FILE="$2"; shift 2 ;;
         --dry-run)      DRY_RUN=1; shift ;;
-        --force-new)    FORCE_NEW=1; shift ;;
-        --allow-closed) ALLOW_CLOSED=1; shift ;;
         -h|--help)      sed -n '2,25p' "$0"; exit 0 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -107,11 +101,14 @@ if [ -n "$NOTES_FILE" ]; then
             echo "ERROR: the notes file contains a v1 marker; that would break comment detection." >&2
             exit 2
         fi
-        while IFS= read -r line; do
+        while IFS= read -r line || [ -n "$line" ]; do
             [ -n "${line//[[:space:]]/}" ] || continue
             case "$line" in
                 "- "*) NOTE_COUNT=$((NOTE_COUNT + 1)) ;;
-                "  "*) : ;;   # continuation of the previous bullet
+                "  "*) [ "$NOTE_COUNT" -gt 0 ] || {
+                    echo "ERROR: a note continuation must follow a '- ' bullet." >&2
+                    exit 2
+                } ;;
                 *) echo "ERROR: every note line must be a '- ' bullet or a 2-space continuation: $line" >&2; exit 2 ;;
             esac
         done < "$NOTES_FILE"
@@ -131,8 +128,8 @@ if [ "$LIVE_HEAD_SHA" != "$HEAD_SHA" ]; then
     echo "       Posting would sign off a commit that was never reviewed. Re-run the review." >&2
     exit 1
 fi
-if [ "$LIVE_STATE" != "open" ] && [ "$ALLOW_CLOSED" = "0" ]; then
-    echo "ERROR: ${UPSTREAM_REPO}#${PR_NUMBER} is '$LIVE_STATE', not open. Pass --allow-closed to post anyway." >&2
+if [ "$LIVE_STATE" != "open" ]; then
+    echo "ERROR: ${UPSTREAM_REPO}#${PR_NUMBER} is '$LIVE_STATE', not open." >&2
     exit 1
 fi
 
@@ -201,6 +198,11 @@ EOF
 SAME_ID=""
 LAST_ID=""
 LAST_COMMIT=""
+COMMENTS_TSV="$(gh api "repos/${UPSTREAM_REPO}/issues/${PR_NUMBER}/comments" --paginate \
+    --jq '.[] | select(.body | test("doris-repo-review:v1:begin")) | [ .id, .user.login, ([.body | scan("commit: [0-9a-f]{40}")] | .[0] // "") ] | @tsv')" || {
+    echo "ERROR: cannot list existing review comments. Nothing was posted." >&2
+    exit 1
+}
 while IFS=$'\t' read -r cid clogin ccommit; do
     [ -n "$cid" ] || continue
     [ "$clogin" = "$REVIEWER" ] || continue
@@ -208,12 +210,11 @@ while IFS=$'\t' read -r cid clogin ccommit; do
     LAST_ID="$cid"
     LAST_COMMIT="$ccommit"
     [ "$ccommit" = "$HEAD_SHA" ] && SAME_ID="$cid"
-done < <(gh api "repos/${UPSTREAM_REPO}/issues/${PR_NUMBER}/comments" --paginate \
-            --jq '.[] | select(.body | test("doris-repo-review:v1:begin")) | [ .id, .user.login, ([.body | scan("commit: [0-9a-f]{40}")] | .[0] // "") ] | @tsv' 2>/dev/null || true)
+done <<<"$COMMENTS_TSV"
 
 ACTION="create"
 EXISTING_ID=""
-if [ -n "$SAME_ID" ] && [ "$FORCE_NEW" = "0" ]; then
+if [ -n "$SAME_ID" ]; then
     ACTION="update"
     EXISTING_ID="$SAME_ID"
 fi

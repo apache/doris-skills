@@ -78,7 +78,9 @@ if [ "$1" = api ] && [ "$2" = repos/apache/doris/pulls/123 ]; then
 elif [ "$1" = api ] && [ "$2" = user ]; then
     printf 'reviewer-one\n'
 elif [ "$1" = api ] && [ "$2" = repos/apache/doris/issues/123/comments ]; then
+    [ "${MOCK_COMMENT_LIST_FAIL:-0}" = 1 ] && exit 1
     [ "${MOCK_SAME_COMMENT:-0}" = 1 ] && printf '987\treviewer-one\tcommit: %s\n' "${MOCK_LIVE_HEAD:?}"
+    exit 0
 elif [ "$1" = api ] && [ "$2" = --method ]; then
     printf '%s\n' "$*" >> "${MOCK_GH_LOG:?}"
     cat > "${MOCK_GH_BODY:?}"
@@ -119,6 +121,14 @@ MOCK_SAME_COMMENT=1 "$S/post-pass-comment.sh" --ctx "$CTX" > "$TMP_ROOT/update"
 grep -Fq -- "--method PATCH repos/apache/doris/issues/comments/987 --input -" "$MOCK_GH_LOG" \
     || fail "poster did not update the same-commit comment"
 pass "same-commit rerun updates the comment"
+
+MOCK_COMMENT_LIST_FAIL=1 expect_failure "comment lookup failure stops posting" \
+    "cannot list existing review comments" "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+BAD_NOTES="$TMP_ROOT/bad-notes.md"
+printf 'not a bullet' > "$BAD_NOTES"
+expect_failure "unterminated malformed note is rejected" "every note line" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --notes-file "$BAD_NOTES" --dry-run
 
 write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged
 expect_failure "REQUEST_CHANGES never posts" "verdict is REQUEST_CHANGES" \
