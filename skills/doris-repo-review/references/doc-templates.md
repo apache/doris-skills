@@ -1,11 +1,16 @@
 # Review document templates
 
-Two documents, same content, same finding IDs, same order:
+Two documents, same content, same finding IDs, same order, named by the head that was reviewed:
 
-- `review-docs/pr-<N>-review.en.md`
-- `review-docs/pr-<N>-review.zh.md`
+- `review-docs/pr-<N>-review.<head7>.en.md`
+- `review-docs/pr-<N>-review.<head7>.zh.md`
+- `review-docs/pr-<N>-review.en.md` / `.zh.md` — symlinks to the newest pair
 
-When the branch has no PR, use `review-docs/<branch-slug>-review.en.md` / `.zh.md`.
+When the branch has no PR, use `review-docs/<branch-slug>-review.<head7>.en.md` / `.zh.md`.
+
+**Never overwrite an earlier run's pair.** `review-docs/` is untracked, so overwriting is
+permanent, and what it destroys is the only record of what an earlier review already considered
+and dismissed. Re-running against the *same* head overwrites that head's pair, and only that one.
 
 The ZH document is a real Chinese review, not a machine translation of the EN one: same facts,
 same anchors, same IDs, but idiomatic Chinese. Identifiers, file paths, log messages, config
@@ -33,6 +38,13 @@ Local review has no inline comments, so an anchor is the only way a reader finds
 | `Blocker` or `Major` | `REQUEST_CHANGES` |
 | only `Minor` / `Nit` / none | `APPROVE` |
 
+The verdict is about severity; **convergence is a separate statement and must not be confused with
+it.** A round converges when it produced no new `Blocker`/`Major` *and* the coverage report is
+clean (SKILL.md step 7). A run that ended with Minor and Nit findings still arriving **converged**
+— report it as such, and name the round after which the verdict stopped moving. Only report "did
+not converge" when blocking findings were still appearing at the cap, or when changed files
+remained unread; say which of the two it was.
+
 Severity meanings: `Blocker` = correctness, data loss, deadlock, crash, incompatible change
 without a compat path, or a broken build/test contract. `Major` = real defect or a missing
 guarantee that will bite in production or during upgrade. `Minor` = worth fixing, not urgent.
@@ -54,7 +66,8 @@ guarantee that will bite in production or during upgrade. `Minor` = worth fixing
 | Reviewed in | `<WORKDIR>` (<ALIGN_MODE>), on <YYYY-MM-DD> |
 | Local alignment | branch check: <…>; commit check: <same / ahead:N / behind:N / diverged:a/b> |
 | Verdict | **REQUEST_CHANGES** / **APPROVE** |
-| Rounds | <r> of max 3, converged / not converged |
+| Rounds | <r> of max 3; converged (verdict stable since round <n>) / did not converge (<which condition failed>) |
+| Builds on | <prior heads reviewed, from prior_runs/, or "first review of this PR"> |
 
 <!-- Only when commit check was ahead:N before aligning: -->
 > `<N>` local commit(s) on `<branch>` are ahead of the PR head and are **not** covered by
@@ -134,6 +147,9 @@ out. This is what makes the review auditable — do not silently drop a concern.
 - Files skimmed and why: <...>
 - Subagents: <round/id/coverage table>
 - Not verified locally: <builds, tests, and anything that needs a running cluster>
+- Evidence taken from outside the repository: <dependency artifacts opened, with versions, or "none">
+- Inherited from earlier runs: <heads, and how many dismissals were carried forward — or "first review of this PR">
+- Convergence: <converged, verdict stable since round N / did not converge because <condition>>
 - Uncommitted worktree paths excluded from this review: <from worktree_status.txt, or "none">
 ```
 
@@ -153,7 +169,8 @@ out. This is what makes the review auditable — do not silently drop a concern.
 | 评审位置 | `<WORKDIR>`（<ALIGN_MODE>），<YYYY-MM-DD> |
 | 本地一致性 | 分支：<…>；commit：<一致 / 领先 N / 落后 N / 已分叉 a/b> |
 | 结论 | **REQUEST_CHANGES** / **APPROVE** |
-| 轮次 | 共 <r> 轮（上限 3），已收敛 / 未收敛 |
+| 轮次 | 共 <r> 轮（上限 3）；已收敛（结论自第 <n> 轮起稳定）/ 未收敛（哪个条件没满足） |
+| 承接自 | <prior_runs/ 里更早评审过的 head，若没有则写"本 PR 的首次评审"> |
 
 <!-- 仅当对齐前 commit check 是领先 N 时保留： -->
 > `<branch>` 上有 `<N>` 个本地提交领先于 PR head，**不在**本次评审范围内。
@@ -223,5 +240,8 @@ out. This is what makes the review auditable — do not silently drop a concern.
 - 只扫了一眼的文件及原因：<...>
 - 子 agent 分工：<轮次 / id / 覆盖面 表格>
 - 本地未验证：<编译、用例，以及任何需要真实集群才能确认的部分>
+- 仓库之外取到的证据：<打开过的依赖产物及版本，没有就写“无”>
+- 承接自更早的评审：<更早的 head，以及沿用了多少条已排除结论——首次评审就写“本 PR 的首次评审”>
+- 收敛情况：<已收敛，结论自第 N 轮起稳定 / 未收敛，因为 <哪个条件>>
 - 未纳入本次评审的未提交改动：<取自 worktree_status.txt，没有就写“无”>
 ```
