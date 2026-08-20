@@ -166,6 +166,12 @@ GIT_DIFF=(git -c diff.renameLimit=32768 diff --no-ext-diff --no-color)
 
 "${GIT_DIFF[@]}" "$DIFF_RANGE"                                  > "$CTX/pr.diff"
 "${GIT_DIFF[@]}" --name-only "$DIFF_RANGE"                      > "$CTX/pr_changed_files.txt"
+# One row per changed file, for the mechanical coverage report of step 6a.
+# A file nobody read is not a file with no findings.
+{
+    printf 'path\tstatus\n'
+    "${GIT_DIFF[@]}" --name-status "$DIFF_RANGE" | awk -F'\t' 'NF>=2 {print $NF "\t" $1}'
+} > "$CTX/coverage_checklist.tsv"
 "${GIT_DIFF[@]}" --name-status -M "$DIFF_RANGE"                 > "$CTX/pr_changed_files_status.txt"
 "${GIT_DIFF[@]}" --stat "$DIFF_RANGE"                           > "$CTX/pr_diffstat.txt"
 git log --oneline --no-decorate "${MERGE_BASE}..${HEAD_SHA}"    > "$CTX/pr_commits.txt"
@@ -399,6 +405,32 @@ fi
 
 # ------------------------------------------------------------------ meta + report
 [ -n "$DOCS_ROOT" ] || DOCS_ROOT="$REPO_ROOT"
+# --------------------------------------------------- prior runs of this same PR
+# A PR is normally reviewed more than once. Each run used to start from zero and
+# leave nothing behind, so the expensive half of a review - the dismissals, with
+# their evidence - was re-derived every time, and "was this considered last
+# time?" was unanswerable. Runs are kept under a stable per-PR directory that is
+# outside both the session scratchpad and the git worktree.
+STATE_ROOT="${DORIS_REVIEW_STATE:-${XDG_CACHE_HOME:-$HOME/.cache}/doris-repo-review}"
+STATE_DIR=""
+PRIOR_RUNS=0
+if [ -n "${PR_NUMBER:-}" ]; then
+    STATE_DIR="${STATE_ROOT}/$(printf '%s' "${UPSTREAM_REPO}" | tr '/' '-')/pr-${PR_NUMBER}"
+    mkdir -p "$STATE_DIR/runs"
+    mkdir -p "$CTX/prior_runs"
+    for run in "$STATE_DIR"/runs/*/; do
+        [ -d "$run" ] || continue
+        head7="$(basename "$run")"
+        # The run for this very head is this run, not a prior one.
+        [ "$head7" = "${HEAD_SHA:0:7}" ] && continue
+        [ -f "$run/main-merged.md" ] || continue
+        cp "$run/main-merged.md" "$CTX/prior_runs/${head7}-main-merged.md"
+        [ -f "$run/meta.env" ] && cp "$run/meta.env" "$CTX/prior_runs/${head7}-meta.env"
+        PRIOR_RUNS=$((PRIOR_RUNS + 1))
+    done
+    [ -f "$STATE_DIR/index.tsv" ] && cp "$STATE_DIR/index.tsv" "$CTX/prior_runs/index.tsv"
+fi
+
 {
     echo "REPO_ROOT=$REPO_ROOT"
     echo "DOCS_ROOT=$DOCS_ROOT"
@@ -417,6 +449,8 @@ fi
     echo "MERGE_BASE=$MERGE_BASE"
     echo "DIFF_RANGE=$DIFF_RANGE"
     echo "DIRTY_FILES=$DIRTY_COUNT"
+    echo "STATE_DIR=${STATE_DIR:-}"
+    echo "PRIOR_RUNS=${PRIOR_RUNS:-0}"
     echo "REVIEW_DATE=$(date +%Y-%m-%d)"
 } > "$CTX/meta.env"
 
@@ -428,6 +462,14 @@ echo "commits       : $(grep -c . "$CTX/pr_commits.txt" || true)"
 echo "diff lines    : $(wc -l < "$CTX/pr.diff" | tr -d ' ')"
 echo "diffstat      : $(tail -n 1 "$CTX/pr_diffstat.txt")"
 echo
+if [ "${PRIOR_RUNS:-0}" -gt 0 ]; then
+    echo "prior runs of this PR (read them, see SKILL.md 2.1): $PRIOR_RUNS"
+    ls -1 "$CTX/prior_runs" | sed 's/^/  /'
+    echo
+else
+    echo "prior runs of this PR: none - this is the first review"
+    echo
+fi
 echo "required AGENTS.md:"
 sed 's/^/  /' "$CTX/required_agents.txt"
 if [ "${DIRTY_COUNT:-0}" -gt 0 ]; then

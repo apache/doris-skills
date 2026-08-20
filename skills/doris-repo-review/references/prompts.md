@@ -15,6 +15,7 @@ Substitute before use:
 | `{ROUND}` | 1-based round number |
 | `{AGENT_ID}` | short slug, e.g. `r1-fe-spi` |
 | `{FOCUS}` | this subagent's assigned coverage |
+| `{TECHNIQUE}` | the section-D technique this agent must apply, named and aimed |
 
 ---
 
@@ -36,6 +37,8 @@ Authoritative PR context (do not obtain the diff or the changed-path list any ot
 - User review focus              : {CTX}/review_focus.txt
 - Required AGENTS.md files       : {CTX}/required_agents.txt
 - Shared review ledger directory : {CTX}/ledger/
+- Earlier reviews of this PR     : {CTX}/prior_runs/   (may be absent - then this is the first)
+- Coverage checklist             : {CTX}/coverage_checklist.tsv
 - Diff range                     : {BASE_SHA}...{HEAD_SHA} (three-dot, from the merge base)
 
 These were generated with `git diff {BASE_SHA}...{HEAD_SHA}` in this worktree. The base SHA
@@ -75,6 +78,19 @@ Line-number rule (this run has no GitHub inline comments, so anchors are the onl
 Evidence rule: for any claimed error you must give the concrete path or logic where it occurs.
 "If A then B" is only acceptable when you name a concrete scenario in which A actually happens.
 
+Evidence may live outside the repository, and you are expected to go and get it. The change list
+comes only from the files above - but evidence does not. When a dependency's own content is what
+decides the behaviour under review, open that dependency: unzip the jar under `~/.m2/repository`
+that the build actually pins and read the resource inside it, read its `-sources.jar`, read the
+vendored service definition, read the JDK class whose contract a comment claims. Name the artifact
+and its version in the finding so the evidence is reproducible. A review that never leaves the diff
+cannot find a defect whose two halves are "the changed line" and "what the changed line now
+reaches".
+
+If `{CTX}/prior_runs/` exists it holds what earlier reviews of this same PR concluded. Read it with
+`pr_review_threads.md`: a dismissal recorded there with evidence does not need re-deriving, and an
+accepted finding recorded there is something the author has already been told.
+
 Do NOT stop after finding the first blocking issue. Keep reviewing changed files, related
 control flow, tests, and parallel or special-case paths until all plausible correctness,
 lifecycle, configuration, compatibility, performance, and coverage bugs have been investigated
@@ -109,6 +125,10 @@ coverage. For optimizer/Nereids changes, follow the plan-tree output style in Pa
 
 Read the actual surrounding code, not only the diff hunks: a change is only correct with
 respect to its real call chain, its concurrency, and its lifecycle.
+
+Technique to apply: {TECHNIQUE}
+See section D of this file. Use it deliberately rather than falling back on "read the diff and
+look for mistakes" - that finds what a careful author already found.
 ```
 
 ---
@@ -139,4 +159,60 @@ until you can answer the question with concrete code evidence. Then record in yo
 Report a candidate finding only when the evidence is concrete. "Not a bug" is a valid and
 useful answer, but it must come with the code evidence that rules the concern out — the main
 agent records that evidence as a dismissal.
+
+Technique to apply: {TECHNIQUE}
+
+Premise: {PREMISE} — status: {PREMISE_RESULT}
+If that status is "cannot be checked cheaply", check the premise FIRST and stop early if it is
+false: say so, with the command that shows it, and do not spend the rest of your budget.
 ```
+
+---
+
+## D. Technique catalogue (name one in every prompt)
+
+A subagent told only "review your slice" invents a method, and the method it invents is usually
+"read the diff and look for mistakes" - which finds what a careful author already found. The
+techniques below are the ones that actually produced findings. Name the one you want, and say what
+it should be applied to.
+
+**D1. Differential against the base.** *Do not read the diff. Reconstruct both sides.* Extract the
+pre-change files with `git show {BASE_SHA}:<path>`, build the old and the new behaviour tables
+yourself - one row per (input, condition) the code distinguishes - and list every cell that
+differs. Then classify each differing cell as intended (name the commit that says so) or as a
+regression. This is what catches a defect whose changed line is *correct*: the line is right, the
+comment explaining it is right, and the consequence two modules away is wrong.
+
+**D2. What did this switch turn on?** When a change fixes something that was silently not working,
+the path it revives has never been exercised. Ask: what else is on that path, what has never run,
+what does the newly-live path now hand to a consumer that was never built to receive it?
+
+**D3. Contract-boundary and dialect check.** At every boundary where one component hands text,
+names, or payloads to another - SPI, plugin, RPC, SQL text, config - ask who owns the format, who
+validates it, and what happens to a value that parses but means something different on the other
+side. Silent widening lives here.
+
+**D4. Doc versus code.** Read the PR body, the release note, the module README, the AGENTS.md
+obligations and the javadoc as *claims*, and check each against the code. A claim that the code
+contradicts is a finding even when the code is right, because the claim is what the next person
+acts on. Machine-checked obligations that a comment says are review-only are your job by definition.
+
+**D5. Parallel paths.** For every fix, find its siblings: the other call sites of the same shape,
+the other plugin family, the other branch of the same method, the other error code with the same
+arity. A fix applied to one of N identical sites is N-1 findings.
+
+**D6. Failure-mode enumeration.** For each new interface method, enumerate `{null, empty,
+exception, wrong type}` as the answer and trace what the engine does with each on every consuming
+path. State for each whether the outcome is a correct refusal, a hard error, or a silent grant.
+
+**D7. Coverage-of-the-gate.** For every test that is claimed to be a gate, ask what change would
+leave it green. A frozen baseline that records less than the obligation it enforces, an assertion
+that restates what the code computes, a mock that stubs out the very default under test, a negative
+control that is not negative.
+
+**D8. Completeness critic (round 3, or whenever a round disappoints).** Not a slice. Build the
+coverage map from the ledger, list the changed files nobody demonstrably opened, read them. Then
+find the two or three most load-bearing "not a bug" conclusions in the ledger and re-derive them
+from primary sources. Then ask which *kinds* of check were never run at all - persistence and
+replay, upgrade *and downgrade*, CI gates, licence obligations, the thrift surface - and run the
+ones that apply.
