@@ -13,6 +13,8 @@ Validate the exact values with:
 $S/review-runtime-policy.sh check "<model>" "<effort>"
 ```
 
+Keep these exact values for `record-review-runtime.sh` after the PR context is prepared.
+
 Never infer task settings from a global config file. Continue in the current task only when its
 model and effort are exposed explicitly and pass the policy check.
 
