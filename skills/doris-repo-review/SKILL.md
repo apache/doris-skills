@@ -34,20 +34,24 @@ Let `$S` be this skill's own `scripts/` directory (with a default Claude Code in
 $S/align-to-pr.sh <PR> --check                      # diagnosis only, changes nothing
 $S/align-to-pr.sh <PR> --out "$CTX/align.env"       # step 1: align the current directory
 $S/prepare-review-context.sh --ctx "$CTX" --align "$CTX/align.env"   # step 2: gather context
+$S/coverage-report.sh --ctx "$CTX"                  # step 6a: what has nobody read yet
 python3 $S/verify-review-docs.py --ctx "$CTX" --doc <en> --doc <zh>  # step 9: verify documents
 $S/record-review-runtime.sh --ctx "$CTX" --model <id> --effort <effort>
 $S/post-pass-comment.sh --ctx "$CTX"                                 # step 10: auto-post PASS
 $S/review-runtime-policy.sh check <model> <effort>                    # reviewer eligibility
+$S/save-run-state.sh --ctx "$CTX" --verdict ... --findings b,m,mi,n  # step 11: leave state for next time
 ```
 
 | File | Purpose |
 |---|---|
 | `scripts/align-to-pr.sh` | Resolve the PR, diagnose how the current directory relates to it, align it to the PR head |
 | `scripts/prepare-review-context.sh` | Produce the authoritative diff, new-side line ranges, required AGENTS.md list, existing comments, ledger skeleton |
+| `scripts/coverage-report.sh` | Mechanical check of which changed files no ledger file has mentioned yet |
 | `scripts/verify-review-docs.py` | Validate commit, anchors, EN/ZH agreement, verdict, findings, rounds, and convergence |
 | `scripts/record-review-runtime.sh` | Record the qualified reviewer model, effort, and exact commit |
 | `scripts/review-runtime-policy.sh` | The exact model and effort allowlist for a pipeline-equivalent review |
 | `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a pass |
+| `scripts/save-run-state.sh` | Persist this run's merged ledger under the stable per-PR state directory, so the next review inherits its dismissals |
 | `references/prompts.md` | Subagent prompt templates (CI wording, carried over verbatim) |
 | `references/doc-templates.md` | Templates for both documents, anchor format, verdict rule |
 | `references/pr-comment-format.md` | The `doris-repo-review/v1` comment schema, field meanings, and how a program reads it back |
@@ -85,6 +89,15 @@ pipeline-equivalent PASS comment.
 4. **Confirm a path before reading it.** If a path is not already confirmed by
    `pr_changed_files.txt`, `pr.diff`, or the output of an earlier successful command, run
    `rg --files` to confirm it first.
+4a. **Evidence may live outside the repository, and you are expected to go and get it.** Rule 3
+   fixes where the *change list* comes from; it says nothing about where *evidence* comes from.
+   When a dependency's own content is what decides the behaviour under review, read that
+   dependency: unzip the jar in `~/.m2/repository/...` that the build actually pins and read the
+   resource inside it, read the `-sources.jar` of the library whose semantics the change relies on,
+   read the vendored service definition, read the JDK class whose contract a comment claims.
+   A review that never leaves the diff cannot find a defect whose two halves are "the changed line"
+   and "what the changed line now reaches" - which is exactly where the worst findings live.
+   Always name the artifact and its version in the finding, so the evidence is reproducible.
 5. **Do not stop at the first blocking issue.** Work through the changed files, the related
    control flow, the tests, and the parallel or special-case paths.
 6. **Every suspicion must reach a conclusion**: it becomes a finding, is excluded as "already
@@ -167,6 +180,8 @@ Output (under `$CTX`):
 | `review_focus.txt` | The user's focus points |
 | `worktree_status.txt` | Uncommitted changes in the review tree (**out of review scope**; call them out in the documents) |
 | `ledger/` | Shared-ledger skeleton |
+| `coverage_checklist.tsv` | One row per changed file, for the mechanical coverage report of step 6a |
+| `prior_runs/` | What earlier reviews of **this same PR** concluded - see below |
 
 If `BASE_SOURCE` is not `PR base sha (matches CI)`, the baseline differs from CI's and the
 documents must say so.
@@ -179,6 +194,39 @@ $S/record-review-runtime.sh --ctx "$CTX" --model "<exact model>" --effort "<exac
 
 If it refuses the runtime, continue with local documents only and do not post a pipeline-equivalent
 PASS comment.
+
+### 2.1 Prior runs of the same PR are input, not history
+
+A PR is usually reviewed more than once - the author pushes, you re-run. Each run used to start
+from zero, re-deriving the same dismissals and re-reading the same files, and none of it survived.
+That is the single largest source of wasted budget, and it is why "why did the last review not
+find this?" used to be unanswerable.
+
+`prepare-review-context.sh` therefore keeps every run's merged ledger under a **stable per-PR
+state directory**, outside the session scratchpad and outside the repository:
+
+```
+${DORIS_REVIEW_STATE:-${XDG_CACHE_HOME:-$HOME/.cache}/doris-repo-review}/<owner>-<repo>/pr-<N>/
+    runs/<head7>/main-merged.md      one per reviewed head
+    runs/<head7>/meta.env
+    index.tsv                        head sha, date, verdict, finding counts
+```
+
+and copies whatever it finds into `$CTX/prior_runs/`. **Read it as part of step 3**, right after
+`pr_review_threads.md`, and treat it exactly the way you treat an existing review thread:
+
+- Its **"Considered and Dismissed" table is the expensive part.** A dismissal that still holds does
+  not need re-deriving; carry it forward into this run's table with its original evidence and a
+  note that it was re-confirmed (or say why it no longer holds). Only re-derive a dismissal whose
+  premise the new head could have changed.
+- Its accepted findings tell you what the author has already been told. One that is now fixed is
+  worth one line in the closing report ("fixed at this head"), not a finding.
+- **If a prior run reviewed a different head, say so and check what moved.** The branch may have
+  been rebased, so comparing by commit hash is unsafe: compare content
+  (`git show <old head>:<path>`) before claiming a finding is new.
+
+An empty `prior_runs/` means this is the first review of this PR - not that nothing was ever
+reviewed. Say which it is in "Coverage and Limits".
 
 ---
 
@@ -195,6 +243,10 @@ Before looking at any code, the main agent reads, in order:
    raise** the same or a substantially similar issue again, even phrased differently. Raise a
    similar concern only when this PR introduces a genuinely different instance somewhere else that
    the existing comments do not cover, and say why it is distinct.
+3a. Everything under `$CTX/prior_runs/` - what earlier reviews of this same PR concluded. See
+   section 2.1: dismissals carry forward with their evidence, accepted findings that are now fixed
+   become one line in the closing report, and a prior run on a different head means comparing
+   content rather than commit hashes.
 4. `$CTX/review_focus.txt` - do the full review as usual and pay extra attention to these points;
    the final documents must respond to each one, even if the conclusion is "no additional issue
    found for this point".
@@ -212,11 +264,40 @@ points look risky to you?
 
 Write the result into `$CTX/ledger/00-main-risk-scan.md`, each entry carrying: an ID, the changed
 files/lines involved, the related mechanism to inspect, why it is suspicious, the upstream or
-downstream files that must be read alongside it, and the **specific question** a risk-focused
-subagent has to answer.
+downstream files that must be read alongside it, the **specific question** a risk-focused
+subagent has to answer, and - see below - a **premise check**.
 
 An empty risk scan means you have not understood the PR yet - go back and read it; do not skip
 this step.
+
+### 4.1 Every risk item carries a premise check, and you run it before spawning anything
+
+A risk item always rests on a premise: "this used to be X and is now Y", "nothing validates Z",
+"only one caller does W". If the premise is false the subagent spends its entire budget proving
+you wrong, and you learn nothing you could not have learned in thirty seconds.
+
+So each entry gets one more field:
+
+```
+  Premise:        <the one factual claim the whole item rests on>
+  Premise check:  <a single command that confirms or kills it>
+  Premise result: <confirmed | FALSE - item dismissed | cannot be checked cheaply>
+```
+
+Run every one of them **before** step 5. The check is nearly always a one-liner against the base:
+
+```bash
+git show "$BASE_SHA:path/to/File.java" | grep -n 'thing I think is new'
+git show "$BASE_SHA:path/to/File.java" | sed -n '120,140p'
+rg -n 'symbol' --files-with-matches            # "only one caller" claims
+```
+
+A premise that comes back FALSE does not become a subagent - it becomes a row in "Considered and
+Dismissed" with the command as its evidence. That row is worth as much as a finding: it is the
+part of the review that says "this was checked", and it costs one command instead of one agent.
+
+A premise you genuinely cannot check cheaply is fine - dispatch it, and say in the prompt that the
+premise is unverified so the subagent checks it first and stops early if it fails.
 
 ---
 
@@ -239,12 +320,40 @@ see the bug. Give every subagent its own ledger file, `$CTX/ledger/sub-<round>-<
 Take the prompts from `references/prompts.md`: section A (shared preamble) plus section B
 (full review) or section C (risk-focused), substituting `{CTX}` / `{REPO_ROOT}` (= `$WORKDIR`) /
 `{BASE_SHA}` / `{HEAD_SHA}` / `{ROUND}` / `{AGENT_ID}` / `{FOCUS}`. **Every subagent prompt must
-state the ledger directory and the path of that subagent's own file.**
+state the ledger directory and the path of that subagent's own file.** Section D of that file is a
+catalogue of the techniques that actually find things - name the one you want in each prompt
+rather than leaving the subagent to invent a method.
 
 > **One implementation difference from CI**: CI uses a single `subagent_review_findings.md` with
 > sections; locally, concurrent writes to one file collide on patch, so this becomes **one file per
 > owner** under `ledger/`. The semantics are unchanged - a single shared source of truth, everyone
 > reads all of it, each writes only their own, the main agent merges.
+
+### 5.1 Round 1 goes out in two waves, because the ledger is empty when it starts
+
+The deduplication rule ("read every file in `ledger/` before reviewing") cannot work in round 1:
+every subagent starts at the same instant against an empty directory. In practice three agents
+independently rediscover the same defect and three budgets buy one finding.
+
+So round 1 - and only round 1 - is dispatched in two waves:
+
+- **Wave A: the full-review subagents.** All of them concurrently, as before. They own the slices,
+  so their coverage is what the union has to span.
+- **Wave B: the risk-focused subagents.** Dispatched once wave A returns, concurrently among
+  themselves. They read wave A's ledger files first, so a mechanism wave A already settled becomes
+  a duplicate note instead of a second investigation, and a risk item wave A has already answered
+  is dropped before it costs anything.
+
+Two things make this cheap rather than slow. Wave A is the long pole either way. And the main
+agent is not idle in between - it merges wave A (step 6) while wave B runs.
+
+Where two waves genuinely will not fit - a small PR, or a risk item so specific that no
+full-review slice touches it - dispatch everything at once and **pre-seed the ledger instead**:
+before spawning, write into `00-main-risk-scan.md` the defects you already expect each slice to
+surface, so a concurrent agent can recognise one of yours and mark it duplicate rather than
+writing it up from scratch.
+
+From round 2 onward the ledger is populated, so all subagents of a round go out together.
 
 ---
 
@@ -265,19 +374,53 @@ candidate into `$CTX/ledger/main-merged.md`:
 
 When this step ends, **no candidate may be left without a status**.
 
+### 6a. Run the coverage report at the end of every round
+
+```bash
+$S/coverage-report.sh --ctx "$CTX"
+```
+
+It is mechanical, not a judgement: it walks `pr_changed_files.txt` and reports which changed files
+no ledger file has so much as mentioned. Finding "13 changed files nobody opened" is a job for
+`grep`, not for a subagent in round 3 - and knowing it after round 1 is what lets round 2 be
+aimed instead of guessed.
+
+Its output is an input to the next round's slicing, and to the verdict: **a file nobody read is
+not a file with no findings.** Either cover it in the next round or read it yourself in step 8.
+
 ---
 
 ## 7. Convergence loop (at most 3 rounds)
 
-One round = step 5 + step 6. Record the outcome in the `Convergence Rounds` table of
-`main-merged.md`.
+One round = step 5 + step 6 + step 6a. Record the outcome in the `Convergence Rounds` table of
+`main-merged.md`, one row per round with: subagents, new candidates **by severity**, coverage gaps
+remaining, verdict.
 
-- Every subagent returned `NO_NEW_VALUABLE_FINDINGS` → go to step 8.
-- New valuable candidates remain → start another round: **re-slice the coverage** based on what
-  this round taught you (do not re-dispatch the same split unchanged), and add risk-focused
-  subagents for any newly suspicious mechanism.
-- **Cap of 3 rounds.** If the cap is reached and new candidates still appear, finish normally but
-  state in the verdict and in "Coverage and Limits" that **this review did not converge**.
+**Convergence is about the verdict, not about the count.** The rounds exist to make you confident
+in the answer you are about to give - which findings block the merge - not to empty the well of
+Nits. A large PR will yield another Minor for as long as you keep looking, and a rule that waits
+for that to stop combined with the re-slicing rule below can never terminate.
+
+So a round **converges** when both hold:
+
+- it produced **no new `Blocker` and no new `Major`**, and
+- the step-6a coverage report is clean - every changed file has been read by somebody.
+
+Then go to step 8, and record in the documents that the verdict has been stable since round N.
+
+Otherwise start another round: **re-slice the coverage** based on what this round taught you (do
+not re-dispatch the same split unchanged), and add risk-focused subagents for any newly suspicious
+mechanism. Aim the new round at where severity actually came from, not at what is left over.
+
+- **Cap of 3 rounds.** If the cap is reached while `Blocker`/`Major` candidates are still
+  appearing, or while coverage gaps remain, finish normally but state in the verdict and in
+  "Coverage and Limits" that **this review did not converge**, and say which of the two conditions
+  failed.
+- If the cap is reached with only `Minor`/`Nit` still trickling in, that is **converged**, and the
+  documents should say so plainly: "the verdict was settled at round N; later rounds added only
+  Minor and Nit findings". Do not report a converged review as a failed one.
+- **A round that returns only Nits is a stop signal, not a reason for another round.** Record the
+  yield (agents spent, findings by severity) so the next person can see where the returns fell off.
 
 ---
 
@@ -286,8 +429,11 @@ One round = step 5 + step 6. Record the outcome in the `Convergence Rounds` tabl
 Before writing the documents, walk explicitly through the changed-file list and the open-candidate
 list:
 
-- Was every changed file covered by at least one subagent? Cover the rest yourself.
+- Run `$S/coverage-report.sh --ctx "$CTX"` one last time. Was every changed file covered by at
+  least one subagent? Cover the rest yourself, and say in "Coverage and Limits" which files you
+  read only here.
 - Does every suspicion have a conclusion?
+- Did every dismissal carried forward from `prior_runs/` get re-confirmed or re-opened?
 - Does every applicable item in Part 1.3 of the code-review skill have an explicit conclusion?
 - Is there anywhere you are still unsure about, or that may not have been investigated deeply
   enough? Investigate it now.
@@ -298,12 +444,24 @@ Only after the sweep may you write the documents.
 
 ## 9. Produce the two documents
 
-Write them into `review-docs/` in the **current directory** (`mkdir -p` it if needed):
+Write them into `review-docs/` in the **current directory** (`mkdir -p` it if needed), named by the
+head that was actually reviewed:
 
 ```
-review-docs/pr-<N>-review.en.md
-review-docs/pr-<N>-review.zh.md
+review-docs/pr-<N>-review.<head7>.en.md      e.g. pr-66770-review.3f45815.en.md
+review-docs/pr-<N>-review.<head7>.zh.md
+review-docs/pr-<N>-review.en.md              symlink -> the newest of the above
+review-docs/pr-<N>-review.zh.md              symlink -> the newest of the above
 ```
+
+**Never overwrite an earlier run's document.** The head sha is in the name precisely so a re-review
+cannot destroy what the last one concluded: that record is the only way to answer "was this
+considered last time, and dismissed with what evidence?" - and once it is gone, it is gone, because
+`review-docs/` is untracked. The two unsuffixed names are convenience symlinks, so anything that
+links to them keeps working while the history accumulates behind them.
+
+Point `verify-review-docs.py` at the real files, not the symlinks. If a document for this exact head
+already exists, you are re-running against an unchanged head: overwrite that one, and only that one.
 
 `references/doc-templates.md` holds the templates, the anchor format, and the verdict rule
 (`Blocker`/`Major` → REQUEST_CHANGES; only `Minor`/`Nit` → APPROVE). The essentials:
@@ -322,8 +480,11 @@ review-docs/pr-<N>-review.zh.md
 - "Response to Review Focus" answers each of the user's focus points.
 - "Considered and Dismissed" lists every excluded suspicion together with its evidence.
 - "Coverage and Limits" states: what was read in depth versus skimmed, how the subagents were
-  split, what was not verified locally (builds, tests, anything needing a real cluster), and the
-  uncommitted changes from `worktree_status.txt` that were excluded.
+  split, what was not verified locally (builds, tests, anything needing a real cluster), the
+  uncommitted changes from `worktree_status.txt` that were excluded, **which earlier runs of this
+  PR this one builds on** (heads and dates from `prior_runs/`, or "first review of this PR"), and
+  **whether the review converged** in the sense of step 7 - naming the round after which the
+  verdict stopped moving, and, if it did not converge, which of the two conditions failed.
 
 When they are written, running the verifier is **mandatory**; if it fails, fix the documents and
 re-run until it passes:
@@ -369,7 +530,12 @@ creates a new one. Keep the schema in `references/pr-comment-format.md` machine-
 Tell the user:
 
 1. The paths of both documents, the verdict (REQUEST_CHANGES / APPROVE), the finding count per
-   severity, and whether the rounds converged.
+   severity, and whether the rounds converged in the sense of step 7 - "the verdict was settled at
+   round N" if they did, and which condition failed if they did not. A run that ended with only
+   Minor/Nit still arriving **converged**; do not report it as a failure.
+1a. **What this run inherited**, when `prior_runs/` was not empty: which heads were reviewed
+   before, how many of their dismissals were carried forward, and which of their accepted findings
+   are fixed at this head. If no prior run existed, say that this is the first review of this PR.
 2. The `branch check` / `commit check` results - especially `ahead:N` (unpushed commits that were
    not reviewed).
 3. **What happened to the PASS comment**: the URL when one was posted or updated, or the reason
@@ -379,6 +545,19 @@ Tell the user:
    may still want to read the code.
 5. `review-docs/` **is not gitignored in the doris repository**, so **do not commit it
    automatically**; leave that to the user.
+6. **Save the run state before you finish** - this is what makes the next review cheaper and makes
+   this one auditable:
+
+   ```bash
+   $S/save-run-state.sh --ctx "$CTX" \
+       --verdict REQUEST_CHANGES --findings <blocker>,<major>,<minor>,<nit> \
+       --rounds <r> --converged <true|false> \
+       --docs "review-docs/pr-<N>-review.<head7>.en.md" --note "<one line: the headline finding>"
+   ```
+
+   It runs for **both** verdicts - a REQUEST_CHANGES review has just as much to hand forward as a
+   pass, and rather more. Tell the user where it was saved and print the per-PR history it echoes,
+   so the sequence of reviews of this PR is visible in one place.
 
 ---
 
@@ -394,7 +573,8 @@ Tell the user:
 | Fetch existing inline threads (30 threads / 1200 chars) | Same jq |
 | Text after `/review` = review focus | Free text after the PR URL → `--focus` |
 | Single-file ledger with sections | A `ledger/` directory, one file per owner |
-| Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Identical |
+| Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Same shape, three local additions: every risk item carries a premise check the main agent runs before dispatch (4.1); round 1 goes out in two waves so the ledger can deduplicate (5.1); a round converges on **severity plus coverage**, not on "no new candidates at all" (7) |
+| CI reviews one push in isolation | Earlier runs of the same PR are loaded from a stable state directory and read as input (2.1); documents are named by head sha and never overwritten (9) |
 | `gh pr review` / Reviews API posting inline comments | **Two `review-docs/` documents (EN + ZH) with `path:line` anchors** |
 | CI's review verdict is visible on the PR itself | On a qualified converged pass, one automatic `doris-repo-review/v1` comment bound to the exact commit; otherwise nothing |
 | 60-minute timeout | No hard timeout, but likewise do not let one round turn into unbounded digging |
@@ -403,6 +583,23 @@ Tell the user:
 
 ## 13. Common traps
 
+- **Treating "another Minor appeared" as non-convergence.** A PR of any size yields another Minor
+  for as long as you keep looking. What has to stop moving is the *verdict* - see step 7. Two runs
+  in a row reporting "did not converge" while the blocking findings were settled in round 1 is a
+  broken criterion, not a deep PR.
+- **Dispatching a subagent on a premise you never checked.** The premise check of step 4.1 costs
+  one command; skipping it costs a whole agent, and the agent comes back having proved you wrong
+  rather than having reviewed anything.
+- **Believing the round-1 ledger deduplicates anything.** It is empty when round 1 starts. Use the
+  two waves of step 5.1, or pre-seed it.
+- **Overwriting the previous run's documents.** They are untracked, so an overwrite is permanent,
+  and it destroys the only record of what was already considered and dismissed. Write
+  `pr-<N>-review.<head7>.*` and let the symlinks move.
+- **Comparing runs by commit hash after a rebase.** A re-reviewed branch is often rebased, so
+  `git log old..new` lists the whole PR again and tells you nothing. Compare content with
+  `git show <old head>:<path>` before claiming a finding is newly introduced.
+- **Staying inside the diff when the evidence is in a dependency.** See ground rule 4a. If a
+  finding's mechanism ends in "…and the library does X", open the library.
 - **The local checkout is ahead of the PR head.** `commit check: ahead:N` means there are unpushed
   commits and **they are not part of the review**. This is the easiest thing for a reader to
   misread, so state it both in the document header and in the closing report.
