@@ -22,7 +22,7 @@ their original form in both documents.
 Local review has no inline comments, so an anchor is the only way a reader finds the code.
 
 - Write anchors inside backticks: `` `fe/fe-core/src/main/java/org/apache/doris/X.java:412` ``
-  or `` `path:412-430` ``. `scripts/verify-anchors.py` only recognises this form.
+  or `` `path:412-430` ``. `scripts/verify-review-docs.py` only recognises this form.
 - Numbers are NEW-SIDE (post-change) line numbers of the worktree at HEAD, cross-checked
   against `changed_line_ranges.txt` and confirmed by reading the file.
 - Every finding carries at least one anchor plus a fenced snippet copied verbatim from it.

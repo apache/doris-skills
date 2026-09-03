@@ -2,7 +2,7 @@
 
 When a review passes, the skill posts **one comment** on the PR from the locally authenticated
 `gh` account. The comment is written by `scripts/post-pass-comment.sh`, never typed by hand: the
-agent supplies the numbers and the notes, the script owns the layout. Anything that reads the
+agent supplies optional notes, while verified documents supply the structured result. Anything that reads the
 comment back — a script, a dashboard, another agent — depends on that layout being fixed.
 
 ## Layout
@@ -42,8 +42,8 @@ converged: true
 - The behaviour change is gated by `ldap_authentication_enabled`, so no rolling-upgrade path is
   required.
 
-<sub>Reviewed locally with the `doris-repo-review` pipeline (a local port of
-`.github/workflows/code-review-runner.yml`). This is not a CI status check.</sub>
+<sub>Reviewed locally with the `doris-repo-review` pipeline. Repository policy may accept this
+receipt for the matching commit; it is not a human Apache approval.</sub>
 <!-- doris-repo-review:v1:end -->
 ````
 
@@ -58,11 +58,11 @@ converged: true
 | `base` | 40-hex | `BASE_SHA` — with `commit` this reproduces the reviewed diff |
 | `reviewed_at` | ISO-8601, minute precision, with offset | when the comment was rendered |
 | `reviewer` | GitHub login | `gh api user`, falling back to GraphQL `viewer` and `gh auth status` |
-| `model` | exact model id | passed with `--model`, e.g. `claude-opus-5[1m]`, `gpt-5.6-sol` |
-| `effort` | reasoning effort | `--effort`, default `$CLAUDE_EFFORT` |
-| `findings` | inline map | counts per severity; `blocker` and `major` are always 0 in a PASS |
-| `rounds` | int | convergence rounds actually run (1-3) |
-| `converged` | bool | `false` means the 3-round cap was hit with candidates still open |
+| `model` | exact eligible model id | `review-runtime.json`, recorded before source review |
+| `effort` | model-supported qualified effort: `xhigh` or `max`, plus `ultra` for Codex | `review-runtime.json` |
+| `findings` | inline map | `verify-review-docs.py`; `blocker` and `major` are always 0 in a PASS |
+| `rounds` | int | `verify-review-docs.py` (1-3) |
+| `converged` | bool | `verify-review-docs.py`; only `true` is posted |
 
 Rules the script enforces, so they cannot drift:
 
@@ -70,7 +70,11 @@ Rules the script enforces, so they cannot drift:
   refuses to post — a failing review leaves no trace on GitHub.
 - **The PR head must not have moved.** The live `head.sha` is re-read and must equal `commit`,
   otherwise the comment would sign off a commit nobody reviewed.
-- **`converged: false` requires at least one note** saying what was left unexamined.
+- **Runtime and documents must name the same commit.** Both must equal `meta.env` and the live PR
+  head. Model and effort must pass the exact allowlist.
+- **The documents are the result source.** The poster invokes their verifier immediately before
+  rendering; command-line overrides for verdict, counts, rounds, or convergence do not exist.
+- **The review must converge.** A non-converged review never posts a PASS receipt.
 - **At most 5 notes**, each a `- ` bullet (2-space indented continuation lines allowed). Longer
   material belongs in the local review documents.
 - **Same commit ⇒ update in place.** An earlier v1 comment by the same account carrying the same
@@ -114,7 +118,8 @@ place only when a maintainer would act differently without it:
 - a residual risk that did not reach `Minor`, with a `path:line` anchor;
 - coverage the review could not reach (no build, no cluster, no test run);
 - a backport or upgrade consideration the PR itself does not state;
-- with `converged: false`, what was still open when the round cap hit.
+
+A non-converged review records what remained open in the local documents and posts no receipt.
 
 Not this: restating what the PR does, listing every `Minor`/`Nit` (they live in the documents),
 praise, or anything that reads as an official Apache sign-off. `_None._` is a perfectly good

@@ -39,7 +39,8 @@ skill from its `description`, so in practice you describe the problem and the ri
 These skills read a Doris **source** checkout and never touch a cluster; the cluster-side skills
 never touch repository source. Nothing here builds Doris or runs tests. The one GitHub write in
 the whole set is `doris-repo-review`'s PASS comment — posted only when the review finds no
-`Blocker` and no `Major`, and only after the user has seen the exact body and approved it.
+`Blocker` or `Major`, converges under a qualified reviewer, and still matches the live PR head.
+Explicitly invoking the skill authorizes that one automatic comment.
 
 ## Install
 
@@ -100,7 +101,8 @@ keep that file and doriscli in sync.
 
 The factual claims in the cluster-side skills are regression-tested — against a real Apache Doris
 cluster, against `doriscli`, and against the skills' own runtime behavior — so they do not drift
-from reality. See [`verify/`](verify/README.md); it runs in three layers:
+from reality. See [`verify/`](verify/README.md); it runs three cluster/behavior layers plus a
+repository-review contract suite:
 
 - **L1 — knowledge**: every DDL template and gotcha in `doris-best-practices` is accepted
   or rejected by a live cluster exactly as the skill claims (`mysql` client).
@@ -109,10 +111,11 @@ from reality. See [`verify/`](verify/README.md); it runs in three layers:
 - **L3 — behavior**: the skills *behave* as written — evidence-first and safety guardrails,
   an end-to-end advisor→DDL→live-cluster loopback, and skill-router triggering — exercised
   through a nested `claude -p`.
+- **Repo review**: qualified-runtime policy, document-result validation, and mocked GitHub comment
+  create/update behavior.
 
 A skill that makes no DDL or doriscli claim (`doris-debug`, `doris-profile-reader`,
-`doris-repo-review`) has no L1/L2 coverage today. Adding cases for a new skill is welcome but not
-a merge requirement.
+`doris-repo-review`) has no L1/L2 coverage; its local receipt contract is covered separately.
 
 ## Contributing a skill
 
