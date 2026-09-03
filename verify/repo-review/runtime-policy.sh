@@ -30,22 +30,43 @@ for model in claude-opus-5.1 claude-fable-4 gpt-5.6-terra gpt-5.7-sol unknown; d
 done
 pass "unlisted models are rejected"
 
-for effort in xhigh max ultra; do
-    is_eligible_review_effort "$effort" || fail "eligible effort rejected: $effort"
+for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]'; do
+    for effort in xhigh max; do
+        is_eligible_review_effort "$model" "$effort" \
+            || fail "eligible Claude runtime rejected: $model ($effort)"
+    done
 done
-pass "xhigh-or-higher efforts are accepted"
+pass "Claude models accept their supported qualified efforts"
 
-for effort in minimal low medium high unknown; do
-    if is_eligible_review_effort "$effort"; then
-        fail "ineligible effort accepted: $effort"
+for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]'; do
+    if is_eligible_review_effort "$model" ultra; then
+        fail "unsupported Claude ultra effort accepted: $model"
     fi
 done
-pass "lower and unknown efforts are rejected"
+pass "Claude models reject unsupported ultra effort"
+
+for effort in xhigh max ultra; do
+    is_eligible_review_effort gpt-5.6-sol "$effort" \
+        || fail "eligible Codex runtime rejected: gpt-5.6-sol ($effort)"
+done
+pass "Codex accepts xhigh, max, and ultra"
+
+for model in claude-opus-5 gpt-5.6-sol; do
+    for effort in minimal low medium high unknown; do
+        if is_eligible_review_effort "$model" "$effort"; then
+            fail "ineligible runtime accepted: $model ($effort)"
+        fi
+    done
+done
+pass "lower and unknown efforts are rejected for every host"
 
 "$POLICY" check gpt-5.6-sol xhigh >/dev/null
 if "$POLICY" check gpt-5.6-sol high >/dev/null 2>&1; then
     fail "policy CLI accepted high effort"
 fi
-pass "policy CLI enforces the same allowlist"
+if "$POLICY" check claude-opus-5 ultra >/dev/null 2>&1; then
+    fail "policy CLI accepted unsupported Claude ultra effort"
+fi
+pass "policy CLI enforces model-specific effort allowlists"
 
 echo "$PASS_COUNT runtime-policy tests passed"

@@ -59,7 +59,7 @@ receipt for the matching commit; it is not a human Apache approval.</sub>
 | `reviewed_at` | ISO-8601, minute precision, with offset | when the comment was rendered |
 | `reviewer` | GitHub login | `gh api user`, falling back to GraphQL `viewer` and `gh auth status` |
 | `model` | exact eligible model id | `review-runtime.json`, recorded before source review |
-| `effort` | `xhigh`, `max`, or `ultra` | `review-runtime.json` |
+| `effort` | model-supported qualified effort: `xhigh` or `max`, plus `ultra` for Codex | `review-runtime.json` |
 | `findings` | inline map | `verify-review-docs.py`; `blocker` and `major` are always 0 in a PASS |
 | `rounds` | int | `verify-review-docs.py` (1-3) |
 | `converged` | bool | `verify-review-docs.py`; only `true` is posted |

@@ -5,7 +5,7 @@ Establish the reviewer runtime before reading source. A pipeline-equivalent revi
 | Host | Models | Effort |
 |---|---|---|
 | Codex | `gpt-5.6-sol` | `xhigh`, `max`, or `ultra` |
-| Claude Code | `claude-opus-5`, `claude-opus-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh`, `max`, or `ultra` |
+| Claude Code | `claude-opus-5`, `claude-opus-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh` or `max` |
 
 Validate the exact values with:
 

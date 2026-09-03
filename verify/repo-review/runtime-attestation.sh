@@ -34,10 +34,19 @@ jq -e --arg head "$HEAD_SHA" \
     "$CTX/review-runtime.json" >/dev/null || fail "runtime JSON fields are wrong"
 pass "qualified runtime records model, effort, and commit"
 
-expect_failure "low effort is rejected" "use xhigh or higher" \
+expect_failure "low effort is rejected" "not eligible for model 'gpt-5.6-sol'" \
     "$RECORDER" --ctx "$CTX" --model gpt-5.6-sol --effort high
 [ ! -e "$CTX/review-runtime.json" ] || fail "failed replacement left an old runtime record"
 pass "failed replacement removes the old attestation"
+
+expect_failure "Claude ultra effort is rejected" "not eligible for model 'claude-opus-5'" \
+    "$RECORDER" --ctx "$CTX" --model claude-opus-5 --effort ultra
+
+"$RECORDER" --ctx "$CTX" --model claude-opus-5 --effort max >/dev/null
+jq -e --arg head "$HEAD_SHA" \
+    '.model == "claude-opus-5" and .effort == "max" and .commit == $head' \
+    "$CTX/review-runtime.json" >/dev/null || fail "supported Claude runtime was not recorded"
+pass "supported Claude effort is recorded"
 
 expect_failure "unlisted model is rejected" "is not eligible" \
     "$RECORDER" --ctx "$CTX" --model gpt-5.6-terra --effort xhigh
