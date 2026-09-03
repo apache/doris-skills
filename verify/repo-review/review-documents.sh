@@ -41,6 +41,8 @@ write_docs() {
     local rounds="$5" en_convergence="$6" zh_convergence="$7"
     local en_anchor="${8:-1}"
     local zh_anchor="${9:-$en_anchor}"
+    local en_max="${10:-3}"
+    local zh_max="${11:-$en_max}"
     cat > "$REPO/review-docs/pr-123-review.en.md" <<EOF
 # Code Review — PR #123: fixture
 
@@ -48,7 +50,7 @@ write_docs() {
 |---|---|
 | PR head | \`$head\` on \`feature\` of \`fork\` |
 | Verdict | **$verdict** |
-| Rounds | $rounds of max 3, $en_convergence |
+| Rounds | $rounds of max $en_max; $en_convergence |
 
 ## Findings
 
@@ -64,7 +66,7 @@ EOF
 |---|---|
 | PR head | \`$head\`，来自 \`fork\` 的 \`feature\` |
 | 结论 | **$verdict** |
-| 轮次 | 共 $rounds 轮（上限 3），$zh_convergence |
+| 轮次 | 共 ${rounds} 轮（上限 ${zh_max}）；${zh_convergence} |
 
 ## 问题清单
 
@@ -113,9 +115,30 @@ jq -e '.verdict == "REQUEST_CHANGES" and .findings.major == 1' <<<"$RESULT" >/de
     || fail "REQUEST_CHANGES result is wrong"
 pass "Major findings produce REQUEST_CHANGES"
 
-write_docs "$HEAD_SHA" APPROVE Minor Minor 3 'not converged' 未收敛
+write_docs "$HEAD_SHA" APPROVE Minor Minor 3 'did not converge' 未收敛
 RESULT="$(verify_json)"
 jq -e '.converged == false' <<<"$RESULT" >/dev/null || fail "non-convergence was not preserved"
-pass "non-converged result remains explicit"
+pass "documented non-converged result remains explicit"
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 2 \
+    'converged (verdict stable since round 1)' '已收敛（结论自第 1 轮起稳定）'
+RESULT="$(verify_json)"
+jq -e '.rounds == 2 and .converged == true' <<<"$RESULT" >/dev/null \
+    || fail "annotated convergence was not preserved"
+pass "documented convergence notes are accepted"
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 3 unconverged 已收敛
+expect_failure "convergence substring is rejected" "missing Rounds/轮次 value" verify_json
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 3 not-converged 已收敛
+expect_failure "hyphenated negative is not certified as converged" \
+    "missing Rounds/轮次 value" verify_json
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 3 converged '尚未达到已收敛状态'
+expect_failure "Chinese negative prose is not certified as converged" \
+    "missing Rounds/轮次 value" verify_json
+
+write_docs "$HEAD_SHA" APPROVE Minor Minor 3 converged 已收敛 1 1 30 30
+expect_failure "malformed maximum is rejected" "missing Rounds/轮次 value" verify_json
 
 echo "$PASS_COUNT review-document tests passed"

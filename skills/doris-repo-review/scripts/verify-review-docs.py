@@ -20,6 +20,28 @@ SEVERITY_RE = re.compile(
 HEAD_RE = re.compile(r"^\|\s*PR head\s*\|\s*`([0-9a-fA-F]{40})`")
 VERDICT_RE = re.compile(r"^\|\s*(?:Verdict|结论)\s*\|\s*\*\*(APPROVE|REQUEST_CHANGES)\*\*\s*\|")
 ROUNDS_RE = re.compile(r"^\|\s*(?:Rounds|轮次)\s*\|(.*?)\|\s*$")
+EN_ROUNDS_VALUE_RE = re.compile(
+    r"""
+    \s*(?P<rounds>\d+)\s+of\s+max\s+3\s*[,;；]\s*
+    (?:
+        (?P<positive>converged)(?:\s*\([^()\n]*\))?
+        |
+        (?P<negative>did\s+not\s+converge)(?:\s*\([^()\n]*\))?
+    )\s*
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+ZH_ROUNDS_VALUE_RE = re.compile(
+    r"""
+    \s*共\s*(?P<rounds>\d+)\s*轮\s*(?:（\s*上限\s*3\s*）|\(\s*上限\s*3\s*\))\s*[,，;；]\s*
+    (?:
+        (?P<positive>已收敛)(?:\s*(?:（[^()（）\n]*）|\([^()（）\n]*\)))?
+        |
+        (?P<negative>未收敛)(?:\s*(?:（[^()（）\n]*）|\([^()（）\n]*\)))?
+    )\s*
+    """,
+    re.VERBOSE,
+)
 CODE_FENCE_RE = re.compile(r"^\s*```")
 SEVERITIES = ("Blocker", "Major", "Minor", "Nit")
 
@@ -79,15 +101,10 @@ def load_changed_ranges(ctx: Path) -> dict[str, list[tuple[int, int]]]:
 
 
 def parse_rounds(value: str) -> tuple[int | None, bool | None]:
-    number = re.match(r"\s*(?:共\s*)?(\d+)(?:\s+of max 3|\s*轮)", value)
-    lowered = value.casefold()
-    if "not converged" in lowered or "未收敛" in value:
-        converged = False
-    elif "converged" in lowered or "已收敛" in value:
-        converged = True
-    else:
-        converged = None
-    return (int(number.group(1)) if number else None, converged)
+    for pattern in (EN_ROUNDS_VALUE_RE, ZH_ROUNDS_VALUE_RE):
+        if match := pattern.fullmatch(value):
+            return int(match.group("rounds")), match.group("positive") is not None
+    return None, None
 
 
 def parse_document(path: Path, errors: list[str]) -> Document:

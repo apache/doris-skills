@@ -134,7 +134,7 @@ write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged
 expect_failure "REQUEST_CHANGES never posts" "verdict is REQUEST_CHANGES" \
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
 
-write_docs "$HEAD_SHA" APPROVE Minor 3 'not converged'
+write_docs "$HEAD_SHA" APPROVE Minor 3 'did not converge'
 expect_failure "non-converged review never posts" "did not converge" \
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
 
