@@ -4,8 +4,12 @@ Establish the reviewer runtime before reading source. A pipeline-equivalent revi
 
 | Host | Models | Effort |
 |---|---|---|
-| Codex | `gpt-5.6-sol` | `xhigh`, `max`, or `ultra` |
-| Claude Code | `claude-opus-5`, `claude-opus-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh` or `max` |
+| Codex | `gpt-6-astra`, `gpt-5.6-sol` | `xhigh`, `max`, or `ultra` |
+| Claude Code | `claude-fable-5-1`, `claude-fable-5-1[1m]`, `claude-opus-5`, `claude-opus-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh` or `max` |
+
+Prefer `gpt-6-astra` on Codex and Fable 5.1 on Claude Code, with `xhigh` as the default
+qualified effort. Use another allowlisted model only when explicitly requested by the user or
+when the preferred model is unavailable.
 
 Validate the exact values with:
 
@@ -13,18 +17,24 @@ Validate the exact values with:
 $S/review-runtime-policy.sh check "<model>" "<effort>"
 ```
 
-Keep these exact values for `record-review-runtime.sh` after the PR context is prepared.
+Keep the actual reviewer's exact model and effort for `record-review-runtime.sh` after the PR
+context is prepared, including when a fallback or delegated reviewer is used. Never substitute
+the parent task's model or a fixed default in the receipt.
 
 Never infer task settings from a global config file. Continue in the current task only when its
-model and effort are exposed explicitly and pass the policy check.
+model and effort are exposed explicitly, pass the policy check, and satisfy the preference above.
 
 ## Codex delegation
 
-When either value is unavailable or ineligible, spawn one lead reviewer with exactly:
+When the current task cannot be retained under the rules above, spawn one lead reviewer with:
 
 - `fork_turns: "none"`
-- `model: "gpt-5.6-sol"`
+- `model: "gpt-6-astra"`
 - `reasoning_effort: "xhigh"`
+
+If Astra is unavailable, fall back to `gpt-5.6-sol` with `xhigh`. If the user explicitly requests
+another qualified runtime, use its exact model and supported effort instead. Preserve a current
+preferred runtime's qualified effort rather than resetting it to `xhigh`.
 
 Pass the original request, current working directory, and absolute path to this skill. Tell the
 lead to execute the whole skill. Wait for it and relay its result; do not read source or repeat the

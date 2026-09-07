@@ -100,11 +100,11 @@ write_meta "$HEAD_SHA"
 write_docs "$HEAD_SHA" APPROVE Minor 2 converged
 expect_failure "poster requires runtime attestation" "review-runtime.json not found" \
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
-"$S/record-review-runtime.sh" --ctx "$CTX" --model gpt-5.6-sol --effort xhigh >/dev/null
+"$S/record-review-runtime.sh" --ctx "$CTX" --model gpt-6-astra --effort xhigh >/dev/null
 
 "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run > "$TMP_ROOT/dry-run"
 grep -Fq "commit: $HEAD_SHA" "$CTX/pr-comment.md" || fail "receipt commit is wrong"
-grep -Fq "model: gpt-5.6-sol" "$CTX/pr-comment.md" || fail "receipt model is wrong"
+grep -Fq "model: gpt-6-astra" "$CTX/pr-comment.md" || fail "receipt model is wrong"
 grep -Fq "findings: {blocker: 0, major: 0, minor: 1, nit: 0}" "$CTX/pr-comment.md" \
     || fail "receipt findings are wrong"
 [ -z "${RECEIPT_OUTPUT:-}" ] || cp "$CTX/pr-comment.md" "$RECEIPT_OUTPUT"

@@ -3,7 +3,7 @@
 
 is_eligible_review_model() {
     case "$1" in
-        claude-opus-5|claude-opus-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|gpt-5.6-sol) return 0 ;;
+        claude-opus-5|claude-opus-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\]|gpt-5.6-sol|gpt-6-astra) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -12,13 +12,13 @@ is_eligible_review_effort() {
     local model="$1"
     local effort="$2"
     case "$model" in
-        claude-opus-5|claude-opus-5\[1m\]|claude-fable-5|claude-fable-5\[1m\])
+        claude-opus-5|claude-opus-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\])
             case "$effort" in
                 xhigh|max) return 0 ;;
                 *) return 1 ;;
             esac
             ;;
-        gpt-5.6-sol)
+        gpt-5.6-sol|gpt-6-astra)
             case "$effort" in
                 xhigh|max|ultra) return 0 ;;
                 *) return 1 ;;
