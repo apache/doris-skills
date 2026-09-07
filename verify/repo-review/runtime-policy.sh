@@ -18,19 +18,19 @@ fail() {
 # shellcheck source=/dev/null
 . "$POLICY"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' gpt-5.6-sol; do
+for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-5.6-sol gpt-6-astra; do
     is_eligible_review_model "$model" || fail "eligible model rejected: $model"
 done
 pass "exact model allowlist is accepted"
 
-for model in claude-opus-5.1 claude-fable-4 gpt-5.6-terra gpt-5.7-sol unknown; do
+for model in claude-opus-4-8 'claude-opus-4-8[1m]' claude-opus-5.1 claude-fable-4 gpt-5.6 gpt-5.6-terra gpt-5.6-luna gpt-5.7-sol gpt-6 unknown; do
     if is_eligible_review_model "$model"; then
         fail "unlisted model accepted: $model"
     fi
 done
 pass "unlisted models are rejected"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]'; do
+for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
     for effort in xhigh max; do
         is_eligible_review_effort "$model" "$effort" \
             || fail "eligible Claude runtime rejected: $model ($effort)"
@@ -38,20 +38,22 @@ for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m
 done
 pass "Claude models accept their supported qualified efforts"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]'; do
+for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
     if is_eligible_review_effort "$model" ultra; then
         fail "unsupported Claude ultra effort accepted: $model"
     fi
 done
 pass "Claude models reject unsupported ultra effort"
 
-for effort in xhigh max ultra; do
-    is_eligible_review_effort gpt-5.6-sol "$effort" \
-        || fail "eligible Codex runtime rejected: gpt-5.6-sol ($effort)"
+for model in gpt-5.6-sol gpt-6-astra; do
+    for effort in xhigh max ultra; do
+        is_eligible_review_effort "$model" "$effort" \
+            || fail "eligible Codex runtime rejected: $model ($effort)"
+    done
 done
 pass "Codex accepts xhigh, max, and ultra"
 
-for model in claude-opus-5 gpt-5.6-sol; do
+for model in claude-opus-5 claude-fable-5-1 'claude-fable-5-1[1m]' gpt-5.6-sol gpt-6-astra; do
     for effort in minimal low medium high unknown; do
         if is_eligible_review_effort "$model" "$effort"; then
             fail "ineligible runtime accepted: $model ($effort)"
