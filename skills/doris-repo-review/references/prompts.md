@@ -11,7 +11,7 @@ Substitute before use:
 |---|---|
 | `{CTX}` | absolute review context directory |
 | `{REPO_ROOT}` | absolute repo root |
-| `{BASE_SHA}` / `{HEAD_SHA}` | from `{CTX}/meta.env` |
+| `{BASE_SHA}` / `{HEAD_SHA}` / `{MERGE_BASE}` | from `{CTX}/meta.env` |
 | `{ROUND}` | 1-based round number |
 | `{AGENT_ID}` | short slug, e.g. `r1-fe-spi` |
 | `{FOCUS}` | this subagent's assigned coverage |
@@ -40,9 +40,14 @@ Authoritative PR context (do not obtain the diff or the changed-path list any ot
 - Earlier reviews of this PR     : {CTX}/prior_runs/   (may be absent - then this is the first)
 - Coverage checklist             : {CTX}/coverage_checklist.tsv
 - Diff range                     : {BASE_SHA}...{HEAD_SHA} (three-dot, from the merge base)
+- Merge base                     : {MERGE_BASE}
 
 These were generated with `git diff {BASE_SHA}...{HEAD_SHA}` in this worktree. The base SHA
-identifies the target-branch snapshot and is not necessarily the diff's left endpoint.
+identifies the target-branch snapshot and is not necessarily the diff's left endpoint; the
+diff's left endpoint is the merge base. Whenever you need "what did this file look like before
+the PR", read `git show {MERGE_BASE}:<path>` - never `git show {BASE_SHA}:<path>`: the target
+branch may carry commits the PR branch has not seen, and their absence at HEAD is not something
+the PR did.
 
 Before reading any file whose exact path is not already confirmed by pr_changed_files.txt,
 pr.diff, or a previous successful command output, you MUST first run `rg --files` to confirm
@@ -65,12 +70,17 @@ Ledger rules:
   globally unique: prefix them with your agent id, e.g. `{AGENT_ID}-01`.
 - If a candidate overlaps one that already exists in the ledger, record it in your own file
   with a duplicate note naming the existing candidate ID instead of restating it.
-- Every candidate carries `Regression: yes | no` — does HEAD behave differently from the base
-  (`git show {BASE_SHA}:<path>`) in a way the PR body does not declare as intended? Cite the base
-  lines. Propose the severity from the consequence when it triggers, never from how narrow the
-  trigger is: a regression in correctness, concurrency, lifecycle, compatibility, config, or data
-  is at least Major, and for a PR presented as behaviour-preserving every undeclared differing
-  cell of your differential table is such a regression.
+- Every candidate carries a `Category:` - exactly one of functional-bug, functional-loss,
+  data-error, resource-leak, performance, observability, test-coverage, wording,
+  maintainability - naming the consequence, with the domain (concurrency, lifecycle,
+  compatibility, config, ...) in a parenthesis after it.
+- Every candidate carries `Regression: yes | no` — does HEAD behave differently from the merge
+  base (`git show {MERGE_BASE}:<path>`) in a way the PR body does not declare as intended? Cite
+  the merge-base lines. Propose the severity from the consequence when it triggers, never from
+  how narrow the trigger is: a regression in functional-bug, functional-loss, data-error,
+  resource-leak, or performance is at least Major, and for a PR presented as
+  behaviour-preserving every undeclared differing cell of your differential table is such a
+  regression.
 
 Line-number rule (this run has no GitHub inline comments, so anchors are the only pointer):
 - Every candidate MUST carry `Path:` plus `Line:` using NEW-SIDE (post-change) line numbers,
@@ -182,12 +192,15 @@ A subagent told only "review your slice" invents a method, and the method it inv
 techniques below are the ones that actually produced findings. Name the one you want, and say what
 it should be applied to.
 
-**D1. Differential against the base.** *Do not read the diff. Reconstruct both sides.* Extract the
-pre-change files with `git show {BASE_SHA}:<path>`, build the old and the new behaviour tables
-yourself - one row per (input, condition) the code distinguishes - and list every cell that
-differs. Then classify each differing cell as intended (name the commit that says so) or as a
-regression. This is what catches a defect whose changed line is *correct*: the line is right, the
-comment explaining it is right, and the consequence two modules away is wrong.
+**D1. Differential against the merge base.** *Do not read the diff. Reconstruct both sides.*
+Extract the pre-change files with `git show {MERGE_BASE}:<path>` (the merge base, not the
+target-branch tip: a commit the target branch gained after the PR branched off is not a cell the
+PR changed), build the old and the new behaviour tables yourself - one row per (input, condition)
+the code distinguishes - and list every cell that differs. Then classify each differing cell as
+intended (name the commit that says so) or as a regression, and name the consequence of each
+regression cell (functional-loss, functional-bug, data-error, ...). This is what catches a defect
+whose changed line is *correct*: the line is right, the comment explaining it is right, and the
+consequence two modules away is wrong.
 
 **D2. What did this switch turn on?** When a change fixes something that was silently not working,
 the path it revives has never been exercised. Ask: what else is on that path, what has never run,
@@ -228,7 +241,8 @@ ones that apply.
 ## E. Severity-challenge subagent (one per intended downgrade, SKILL.md step 6)
 
 Append to the shared preamble. Dispatch it **before** finalizing a severity that is lower than the
-subagent proposed, or before dismissing a correctness / concurrency / lifecycle candidate. It is
+subagent proposed, or before dismissing a functional-bug / functional-loss / data-error /
+resource-leak candidate. It is
 deliberately one-sided: its job is to make the strongest case for the higher severity so the main
 agent's rationale has been argued against by someone before it is written into the documents.
 
@@ -244,23 +258,28 @@ Anchor(s)             : {ANCHORS}
 Proposed by subagent  : {PROPOSED_SEVERITY}
 Main agent intends    : {INTENDED_SEVERITY_OR_DISMISSAL}
 Main agent's rationale: {RATIONALE}
+Category              : {CATEGORY}
 Regression flag       : {REGRESSION_FLAG} (evidence: {REGRESSION_EVIDENCE})
 
 Do this, in order:
 1. Re-derive the consequence from the code, not from the ledger: when the trigger happens, what is
    wrong, leaked, lost, or silently skipped? Who notices, and when? What is the blast radius (one
    session, one query, the FE, persisted state)? Cite `path:line`.
-2. Check the regression flag yourself with `git show {BASE_SHA}:<path>`: did the base behave
-   differently? If HEAD differs and the PR body does not declare it, the flag is `yes` and the floor
-   is Major for a correctness / concurrency / lifecycle / compatibility / config / data category -
-   say so even if the main agent's rationale never mentions it.
+2. Check the regression flag yourself with `git show {MERGE_BASE}:<path>`: did the merge base
+   behave differently? If HEAD differs and the PR body does not declare it, the flag is `yes`. Then
+   check the category: is the consequence really observability / test-coverage / wording /
+   maintainability, or is something the base *did* no longer happening (functional-loss), or
+   wrong (functional-bug / data-error), leaked (resource-leak), or slower (performance)? A `yes` in
+   one of those five is at least Major - say so even if the main agent's rationale never mentions
+   it. A difference that exists only because the target branch moved on after the PR branched off
+   is not a regression; say that too.
 3. Attack the rationale: is it about probability ("narrow", "cloud only", "needs two failures") or
    about cost ("one-line fix") rather than about consequence? Those are not severity arguments.
    Is "no wrong result" true for every consumer of the leaked or skipped state?
 4. Name the strongest counter-argument to your own case and say whether it survives.
 
 Write to {CTX}/ledger/sub-{ROUND}-challenge-{CANDIDATE_ID}.md and return exactly:
-- the severity you would assign and the regression flag you verified,
+- the severity you would assign, and the category and regression flag you verified,
 - the one-paragraph consequence analysis with citations,
 - UPHOLD_DOWNGRADE when the main agent's rationale survives your best case, otherwise
   RAISE_SEVERITY with the floor that applies.

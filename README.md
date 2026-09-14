@@ -34,7 +34,7 @@ skill from its `description`, so in practice you describe the problem and the ri
 
 | Skill | What it does | Use it when |
 |---|---|---|
-| [`doris-repo-review`](skills/doris-repo-review/) | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner: worktree alignment, risk scan with premise checks, subagent fan-out, shared ledger, mechanical coverage report, anchored EN + ZH review documents kept per reviewed head with a per-finding regression flag that floors an undeclared behaviour change at Major, dismissals carried forward from earlier reviews of the same PR, and — on a passing, regression-free review — one machine-readable PASS comment on the PR | Reviewing an `apache/doris` pull request locally, the way the pipeline would |
+| [`doris-repo-review`](skills/doris-repo-review/) | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner: worktree alignment, risk scan with premise checks, subagent fan-out, shared ledger, mechanical coverage report, anchored EN + ZH review documents kept per reviewed head with a per-finding category and a regression flag judged against the merge base that floors an undeclared functional / data / resource / performance change at Major, dismissals carried forward from earlier reviews of the same PR, and — on a passing review — one machine-readable PASS comment on the PR that discloses any remaining behaviour change | Reviewing an `apache/doris` pull request locally, the way the pipeline would |
 
 These skills read a Doris **source** checkout and never touch a cluster; the cluster-side skills
 never touch repository source. Nothing here builds Doris or runs tests. The one GitHub write in

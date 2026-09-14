@@ -1,8 +1,10 @@
 # PASS comment format (`doris-repo-review/v1`)
 
-When a review passes — a converged `APPROVE` with no Blocker/Major finding and no finding flagged
-as a regression against the base — the skill posts **one comment** on the PR from the locally
-authenticated `gh` account. The comment is written by `scripts/post-pass-comment.sh`, never typed by hand: the
+When a review passes — a converged `APPROVE` with no Blocker/Major finding and no regression in
+a category that carries the Major floor (`functional-bug`, `functional-loss`, `data-error`,
+`resource-leak`, `performance`) — the skill posts **one comment** on the PR from the locally
+authenticated `gh` account. A regression in any other category can stay `Minor`/`Nit` and still
+pass, but the receipt then has to name it in the notes; the poster refuses to post without them. The comment is written by `scripts/post-pass-comment.sh`, never typed by hand: the
 agent supplies optional notes, while verified documents supply the structured result. Anything that reads the
 comment back — a script, a dashboard, another agent — depends on that layout being fixed.
 
@@ -56,7 +58,7 @@ receipt for the matching commit; it is not a human Apache approval.</sub>
 | `status` | `PASS` | the only value ever posted; `CHANGES_REQUESTED` is reserved, not used |
 | `pr` | `owner/repo#N` | `meta.env` |
 | `commit` | 40-hex | `HEAD_SHA` — the exact commit reviewed |
-| `base` | 40-hex | `BASE_SHA` — with `commit` this reproduces the reviewed diff |
+| `base` | 40-hex | `BASE_SHA` — with `commit` this reproduces the reviewed diff (`git diff base...commit`); the regression flags were judged against the merge base of the two |
 | `reviewed_at` | ISO-8601, minute precision, with offset | when the comment was rendered |
 | `reviewer` | GitHub login | `gh api user`, falling back to GraphQL `viewer` and `gh auth status` |
 | `model` | exact eligible model id | `review-runtime.json`, recorded before source review |
@@ -116,12 +118,16 @@ gh api repos/apache/doris/issues/66807/comments --paginate \
 The comment is not a substitute for the review documents; it is the receipt. A note earns its
 place only when a maintainer would act differently without it:
 
+- **every finding flagged `Regression: yes`** — an undeclared behaviour change in
+  `observability` / `test-coverage` / `wording` / `maintainability` that stayed below `Major` —
+  first, named by ID and category with its `path:line` anchor and why it is acceptable; the poster
+  refuses a receipt that would leave one undisclosed;
 - a residual risk that did not reach `Minor`, with a `path:line` anchor;
 - coverage the review could not reach (no build, no cluster, no test run);
 - a backport or upgrade consideration the PR itself does not state;
 
 A non-converged review records what remained open in the local documents and posts no receipt.
 
-Not this: restating what the PR does, listing every `Minor`/`Nit` (they live in the documents),
-praise, or anything that reads as an official Apache sign-off. `_None._` is a perfectly good
-notes section.
+Not this: restating what the PR does, listing every `Minor`/`Nit` (they live in the documents;
+only the ones flagged as regressions belong here), praise, or anything that reads as an official
+Apache sign-off. `_None._` is a perfectly good notes section when no finding is a regression.

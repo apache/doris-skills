@@ -154,6 +154,10 @@ fi
 
 MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
 DIFF_RANGE="${BASE_SHA}...${HEAD_SHA}"
+# Target-branch commits the PR branch has not seen. When this is non-zero, HEAD differs from
+# BASE_SHA in places the PR never touched; "what did the PR change" questions - the regression
+# flag above all - must be answered against MERGE_BASE, not BASE_SHA.
+TARGET_AHEAD="$(git rev-list --count "${MERGE_BASE}..${BASE_SHA}")"
 
 # ------------------------------------------------------------------ worktree state
 git status --porcelain > "$CTX/worktree_status.txt"
@@ -351,7 +355,8 @@ Candidate format:
   Path:
   Line:          <new-side line or start-end, must match changed_line_ranges.txt or be justified>
   Severity:      Blocker | Major | Minor | Nit   <from the consequence when it triggers, not its probability>
-  Regression:    yes | no   <does HEAD differ from `git show BASE:<path>` in a way the PR body does not declare? cite base lines; a regression in correctness/concurrency/lifecycle/compatibility/config/data is at least Major>
+  Category:      functional-bug | functional-loss | data-error | resource-leak | performance | observability | test-coverage | wording | maintainability   <one class, optionally "(domain note)">
+  Regression:    yes | no   <does HEAD differ from `git show MERGE_BASE:<path>` in a way the PR body does not declare? cite merge-base lines; yes in the first five categories is at least Major>
   Claim:
   Evidence:      <call chain / concrete trigger scenario / file:line citations>
   Duplicate relationship:
@@ -388,8 +393,9 @@ Owned by the main agent.
   Source IDs:
   Status:                                  <accepted | dismissed_with_evidence | duplicated>
   Severity:
-  Regression:                              <yes | no, with the base evidence; yes in a correctness/concurrency/lifecycle/compatibility/config/data category is at least Major>
-  Severity rationale:                      <required when rated below the subagent's proposal: consequence when it triggers, why not Major>
+  Category:                                <functional-bug | functional-loss | data-error | resource-leak | performance | observability | test-coverage | wording | maintainability>
+  Regression:                              <yes | no, with the merge-base evidence (`git show MERGE_BASE:<path>`); yes in a functional/data/resource/performance category is at least Major>
+  Severity rationale:                      <required when rated below the subagent's proposal, and for a regression in any other category rated below Major: consequence when it triggers, why not Major>
   Severity challenge:                      <UPHOLD_DOWNGRADE | RAISE_SEVERITY | n/a - from the section-E subagent>
   Path:
   Line:
@@ -451,6 +457,7 @@ fi
     echo "BASE_SOURCE=$BASE_SOURCE"
     echo "HEAD_SHA=$HEAD_SHA"
     echo "MERGE_BASE=$MERGE_BASE"
+    echo "TARGET_AHEAD=$TARGET_AHEAD"
     echo "DIFF_RANGE=$DIFF_RANGE"
     echo "DIRTY_FILES=$DIRTY_COUNT"
     echo "STATE_DIR=${STATE_DIR:-}"
@@ -465,6 +472,9 @@ echo "changed files : $(grep -c . "$CTX/pr_changed_files.txt" || true)"
 echo "commits       : $(grep -c . "$CTX/pr_commits.txt" || true)"
 echo "diff lines    : $(wc -l < "$CTX/pr.diff" | tr -d ' ')"
 echo "diffstat      : $(tail -n 1 "$CTX/pr_diffstat.txt")"
+if [ "${TARGET_AHEAD:-0}" -gt 0 ]; then
+    echo "target ahead  : $TARGET_AHEAD commit(s) on $BASE_REF after the merge base - judge regressions against MERGE_BASE, not BASE_SHA"
+fi
 echo
 if [ "${PRIOR_RUNS:-0}" -gt 0 ]; then
     echo "prior runs of this PR (read them, see SKILL.md 2.1): $PRIOR_RUNS"

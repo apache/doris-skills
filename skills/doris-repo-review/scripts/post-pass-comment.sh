@@ -11,7 +11,8 @@
 # Runtime fields come from review-runtime.json. Review fields come directly from
 # verify-review-docs.py. The agent supplies notes, never receipt fields or format.
 # Refuses on anything that is not a converged APPROVE with zero Blocker/Major findings and
-# zero findings flagged as regressions against the base.
+# zero regressions in a category that carries the Major floor; a regression in any other
+# category (rated Minor/Nit) is allowed only when the notes disclose it.
 #
 # Rendered body: <ctx>/pr-comment.md   Posted URL: <ctx>/pr-comment.url
 set -euo pipefail
@@ -88,6 +89,10 @@ F_REGRESSIONS="$(jq -er '.regressions | numbers' <<<"$RESULT_JSON")" || {
     echo "ERROR: the verifier did not report a regression count; update verify-review-docs.py." >&2
     exit 2
 }
+F_FLOORED_REGRESSIONS="$(jq -er '.floored_regressions | numbers' <<<"$RESULT_JSON")" || {
+    echo "ERROR: the verifier did not report a floored-regression count; update verify-review-docs.py." >&2
+    exit 2
+}
 
 [ "$RESULT_COMMIT" = "$NORMALIZED_HEAD_SHA" ] || { echo "ERROR: review documents target another commit." >&2; exit 2; }
 [ "$VERDICT" = "APPROVE" ] || { echo "ERROR: review verdict is $VERDICT. Nothing was posted." >&2; exit 1; }
@@ -96,10 +101,11 @@ F_REGRESSIONS="$(jq -er '.regressions | numbers' <<<"$RESULT_JSON")" || {
     echo "ERROR: Blocker or Major findings cannot produce a PASS comment." >&2
     exit 1
 }
-# The verifier already floors a regression at Major, so this only fires when the two scripts
-# disagree; a PASS receipt must never sit on top of an undeclared behaviour change.
-[ "$F_REGRESSIONS" -eq 0 ] || {
-    echo "ERROR: $F_REGRESSIONS finding(s) are marked as regressions against the base; a PASS receipt cannot be issued. Nothing was posted." >&2
+# The verifier already floors a functional / data / resource / performance regression at Major,
+# so this only fires when the two scripts disagree; a PASS receipt must never sit on top of an
+# undeclared behaviour change in one of those categories.
+[ "$F_FLOORED_REGRESSIONS" -eq 0 ] || {
+    echo "ERROR: $F_FLOORED_REGRESSIONS finding(s) are regressions in a category that is at least Major; a PASS receipt cannot be issued. Nothing was posted." >&2
     exit 1
 }
 
@@ -127,6 +133,12 @@ if [ -n "$NOTES_FILE" ]; then
         [ "$NOTE_COUNT" -le 5 ] || { echo "ERROR: at most 5 notes; got $NOTE_COUNT. Keep the rest in the review document." >&2; exit 2; }
         NOTES_BODY="$(cat "$NOTES_FILE")"
     fi
+fi
+# A regression outside the floored categories stays Minor/Nit, so the verdict is still APPROVE -
+# but the receipt must not be silent about a behaviour change the PR body never declared.
+if [ "$F_REGRESSIONS" -gt 0 ] && [ "$NOTE_COUNT" -eq 0 ]; then
+    echo "ERROR: $F_REGRESSIONS finding(s) are undeclared behaviour changes (Regression: yes); the receipt must disclose each of them - list them as --notes-file bullets. Nothing was posted." >&2
+    exit 1
 fi
 # ------------------------------------------------------------------ live PR state
 PR_TSV="$(gh api "repos/${UPSTREAM_REPO}/pulls/${PR_NUMBER}" --jq '[.head.sha, .state] | @tsv')" || {
@@ -238,6 +250,7 @@ echo "reviewer  : ${REVIEWER}"
 echo "model     : ${MODEL} (effort ${EFFORT})"
 echo "findings  : blocker=${F_BLOCKER} major=${F_MAJOR} minor=${F_MINOR} nit=${F_NIT}"
 echo "notes     : ${NOTE_COUNT}"
+[ "$F_REGRESSIONS" -eq 0 ] || echo "disclosed : ${F_REGRESSIONS} undeclared behaviour change(s) in non-blocking categories, named in the notes"
 if [ "$ACTION" = "update" ]; then
     echo "action    : UPDATE the existing comment ${EXISTING_ID} (same commit)"
 elif [ -n "$LAST_ID" ]; then

@@ -13,9 +13,9 @@ permanent, and what it destroys is the only record of what an earlier review alr
 and dismissed. Re-running against the *same* head overwrites that head's pair, and only that one.
 
 The ZH document is a real Chinese review, not a machine translation of the EN one: same facts,
-same anchors, same IDs, same severities and regression flags, but idiomatic Chinese. Identifiers, file paths, log messages, config
-names, code snippets, and the severity words (`Blocker` / `Major` / `Minor` / `Nit`) stay in
-their original form in both documents.
+same anchors, same IDs, same severities, categories and regression flags, but idiomatic Chinese.
+Identifiers, file paths, log messages, config names, code snippets, and the severity words
+(`Blocker` / `Major` / `Minor` / `Nit`) stay in their original form in both documents.
 
 ## Anchor format (mandatory, both documents)
 
@@ -50,45 +50,87 @@ without a compat path, or a broken build/test contract. `Major` = real defect or
 guarantee that will bite in production or during upgrade. `Minor` = worth fixing, not urgent.
 `Nit` = style or wording.
 
-## Regression flag and severity floors
+## Category, regression flag, and severity floors
 
-Every finding carries a second mandatory line right after its severity:
+Every finding carries two more mandatory lines right after its severity — its **category** and
+whether it is a **regression**:
 
 ```markdown
-- **Regression**: yes        <!-- EN;  ZH: - **回归**：是 / 否 -->
+- **Category**: functional-loss (lifecycle)        <!-- EN;  ZH: - **类别**：功能缺失（生命周期） -->
+- **Regression**: yes                              <!-- EN;  ZH: - **回归**：是 / 否 -->
 ```
 
-`yes` means the behaviour at HEAD differs from the base in a way the PR body does not declare as
-intended — the cell of the differential table that the author did not ask for. `no` means the
-defect was already there (the PR merely exposes, documents, or moves it) or the change is the one
-the PR set out to make. The evidence is `git show <BASE_SHA>:<path>`; name it in the finding.
-`verify-review-docs.py` rejects a finding without the line and rejects EN/ZH documents whose flags
-disagree.
+### Category
 
-The flag drives a floor that the verifier enforces and that no amount of "but it is narrow"
-overrides:
+The category names the *consequence* of the finding, from this closed vocabulary. The
+verifier rejects any other value, so an unrecognised category cannot slip past the floor. One
+class per finding; the domain that produced it (concurrency, lifecycle, compatibility, config,
+…) goes in an optional parenthetical after the class.
+
+| Category (EN / ZH) | What belongs here | Regression floor |
+|---|---|---|
+| `functional-bug` / `功能缺陷` | the code does the wrong thing: crash, exception, hang, deadlock, wrong branch, wrong control flow, a check that fires when it should not | at least `Major` |
+| `functional-loss` / `功能缺失` | something the base did, or the PR claims, no longer happens: a dropped reset, a removed compat path, a check that no longer runs, a sibling path left unchanged, a rolling-upgrade path that breaks | at least `Major` |
+| `data-error` / `数据错误` | wrong query results, lost, duplicated or corrupted data, an edit log or persisted state that does not replay | at least `Major` |
+| `resource-leak` / `资源泄露` | memory, file descriptors, threads, connections, locks, temp files, tablets or statements not released | at least `Major` |
+| `performance` / `性能降低` | slower, more memory / CPU / IO, a lost optimisation, an unbounded loop or allocation | at least `Major` |
+| `observability` / `可观测性` | logs, VLOG, metrics, profile fields, the diagnostic content of an error message | judged normally |
+| `test-coverage` / `测试覆盖` | missing, weakened, or non-negative tests; a gate a change would leave green | judged normally |
+| `wording` / `措辞` | comments, docs, messages, naming | judged normally |
+| `maintainability` / `可维护性` | duplication, dead code, structure, an unexplained special case | judged normally |
+
+Spelling is compared case-insensitively with spaces, hyphens and underscores removed, and the
+ZH forms `功能性bug` / `功能性缺失` / `资源泄漏` / `性能` are accepted as aliases. EN and ZH
+documents must agree on the category of every finding.
+
+### Regression
+
+`yes` means the behaviour at HEAD differs from the **merge base** in a way the PR body does not
+declare as intended — the cell of the differential table that the author did not ask for. `no`
+means the defect was already there (the PR merely exposes, documents, or moves it) or the change
+is the one the PR set out to make. The evidence is `git show <MERGE_BASE>:<path>`; name it in
+the finding.
+
+The comparison point is `MERGE_BASE` (from `meta.env`), **not** `BASE_SHA`. `BASE_SHA` is the
+tip of the target branch — the snapshot the diff was cut against and the commit the PASS receipt
+binds to — and it may carry commits the PR branch has never seen (`TARGET_AHEAD` in `meta.env`
+counts them). A fix that landed on the target branch after the PR branched off is absent at
+HEAD without the PR having removed anything, and a normal merge keeps it; comparing against
+`BASE_SHA` would report it as a "dropped" behaviour and a Major regression that does not exist.
+Whether the PR still merges cleanly *semantically* against a target branch that has moved on is
+a real question, but a different one — raise it, when it applies, as its own finding or
+dismissal row, never as `Regression: yes`.
+
+`verify-review-docs.py` rejects a finding without the line and rejects EN/ZH documents whose
+flags disagree.
+
+### Floors
+
+The flag and the category together drive a floor that the verifier enforces and that no
+amount of "but it is narrow" overrides:
 
 | Condition | Floor |
 |---|---|
-| `Regression: yes` in a correctness, concurrency, lifecycle, compatibility, config, or data category | at least `Major` |
-| `Regression: yes` anywhere else (observability, wording, tests) | judged normally, but say why the behaviour change is acceptable |
-| a PR presented as behaviour-preserving (`[refactor]`, `[chore]`, "Behavior changed: No", or any wording that claims equivalence): **every** differing cell of the D1 differential table that the PR body does not name as intended | `Regression: yes`, hence at least `Major` — the reviewer's job is to find the cell, not to decide whether it matters |
+| `Regression: yes` in `functional-bug`, `functional-loss`, `data-error`, `resource-leak`, or `performance` | at least `Major` — the verifier rejects `Minor` / `Nit` |
+| `Regression: yes` in `observability`, `test-coverage`, `wording`, or `maintainability` | judged normally by consequence; below `Major` the finding **must** carry a **Severity rationale** paragraph saying why the behaviour change is acceptable (the verifier checks that it is there), and the PASS receipt must name it in its notes |
+| a PR presented as behaviour-preserving (`[refactor]`, `[chore]`, "Behavior changed: No", or any wording that claims equivalence): **every** differing cell of the D1 differential table that the PR body does not name as intended | `Regression: yes`, classified by its consequence like any other finding — a cell that differs in what the code *does* (as opposed to what it logs or says) is `functional-loss` / `functional-bug` / `data-error`, hence at least `Major`. The reviewer's job is to find the cell and name its consequence, not to decide whether it matters |
 
 Severity is the consequence *when* the finding triggers — what is wrong, leaked, lost, or
 silently skipped — never the probability that it triggers. A narrow trigger (one protocol, cloud
 only, a retry that has to fail twice), a rare environment, or a one-line fix is not a discount. The
 review of apache/doris#67900 rated a per-attempt reset that the PR had dropped as `Minor` because
 the trigger was "Flight + replan + failing retry" and the fix was one line; the connector statement
-scope it leaked was raised again by the next reviewer as a must-fix. That is the case this section
-exists to prevent.
+scope it leaked was raised again by the next reviewer as a must-fix. Under this table that finding
+is `functional-loss` (the reset the base performed no longer happens), `Regression: yes`, and
+therefore at least `Major` — the case this section exists to prevent.
 
 **Downgrading needs a written rationale.** When the main agent rates a candidate below what the
-subagent proposed, or dismisses a correctness / concurrency / lifecycle candidate, the finding (or
-the "Considered and Dismissed" row) must carry a **Severity rationale** paragraph: the consequence
-analysis — what happens when it triggers, who notices, what is left leaked or wrong — and
-explicitly why that is not `Major`. "Narrow", "one-line fix", or "no wrong result" alone is not a
-rationale. SKILL.md step 6 additionally dispatches a severity-challenge subagent before such a
-downgrade is final.
+subagent proposed, or dismisses a `functional-bug` / `functional-loss` / `data-error` /
+`resource-leak` candidate, the finding (or the "Considered and Dismissed" row) must carry a
+**Severity rationale** paragraph: the consequence analysis — what happens when it triggers, who
+notices, what is left leaked or wrong — and explicitly why that is not `Major`. "Narrow",
+"one-line fix", or "no wrong result" alone is not a rationale. SKILL.md step 6 additionally
+dispatches a severity-challenge subagent before such a downgrade is final.
 
 ---
 
@@ -124,9 +166,9 @@ downgrade is final.
 ### F-01 · <one-line title>
 
 - **Severity**: Blocker
-- **Regression**: yes <!-- yes = behaviour differs from the base and the PR body does not declare it intended; no = pre-existing or intended. Mandatory; a regression is at least Major. -->
+- **Category**: functional-bug (concurrency) <!-- one of functional-bug / functional-loss / data-error / resource-leak / performance / observability / test-coverage / wording / maintainability; the domain goes in the parenthesis. Mandatory. -->
+- **Regression**: yes <!-- yes = behaviour differs from the merge base and the PR body does not declare it intended; no = pre-existing or intended. Mandatory; yes in the first five categories is at least Major. -->
 - **Where**: `path/to/File.java:412-430`
-- **Category**: correctness / concurrency / lifecycle / compatibility / config / performance / observability / test coverage
 
 ```java
 <verbatim snippet from the anchor>
@@ -138,9 +180,11 @@ downgrade is final.
 
 **When it bites.** <a concrete trigger scenario — who calls what, in which order, with which data>
 
-**Severity rationale.** <required whenever the severity is below what a subagent proposed, or a
-regression is rated at the floor rather than Blocker: the consequence when it triggers and why that
-is (not) worse. Omit for findings rated as proposed.>
+**Severity rationale.** <required whenever the severity is below what a subagent proposed, a
+regression is rated at the floor rather than Blocker, or a regression in observability /
+test-coverage / wording / maintainability is rated below Major (say why the behaviour change is
+acceptable): the consequence when it triggers and why that is (not) worse. Omit for findings rated
+as proposed.>
 
 **Suggested fix.**
 
@@ -229,9 +273,9 @@ out. This is what makes the review auditable — do not silently drop a concern.
 ### F-01 · <一句话标题>
 
 - **等级**：Blocker
-- **回归**：是 <!-- 是 = HEAD 的行为与 base 不同且 PR 描述没有声明这是有意的；否 = 既有问题或有意改动。必填；回归至少是 Major。 -->
+- **类别**：功能缺陷（并发） <!-- 功能缺陷 / 功能缺失 / 数据错误 / 资源泄露 / 性能降低 / 可观测性 / 测试覆盖 / 措辞 / 可维护性 之一；所属领域写在括号里。必填。 -->
+- **回归**：是 <!-- 是 = HEAD 的行为与 merge base 不同且 PR 描述没有声明这是有意的；否 = 既有问题或有意改动。必填；前五类里的回归至少是 Major。 -->
 - **位置**：`path/to/File.java:412-430`
-- **类别**：正确性 / 并发 / 生命周期 / 兼容性 / 配置 / 性能 / 可观测性 / 测试覆盖
 
 ```java
 <锚点处原样摘录的代码>
@@ -243,7 +287,7 @@ out. This is what makes the review auditable — do not silently drop a concern.
 
 **什么时候会踩到。** <具体触发场景：谁在什么顺序上调用了什么、数据长什么样>
 
-**定级理由。** <当等级低于子 agent 提议、或回归只定在 Major 下限而非 Blocker 时必填：触发后的后果是什么、为什么（不）更严重。等级与提议一致时可省略。>
+**定级理由。** <当等级低于子 agent 提议、回归只定在 Major 下限而非 Blocker、或可观测性 / 测试覆盖 / 措辞 / 可维护性类的回归定在 Major 以下（说明为什么这个行为变化可以接受）时必填：触发后的后果是什么、为什么（不）更严重。等级与提议一致时可省略。>
 
 **修改建议。**
 

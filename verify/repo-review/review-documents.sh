@@ -37,13 +37,24 @@ EOF
 }
 
 # EN_REGRESSION / ZH_REGRESSION: the value of the mandatory regression line (default no / 否);
-# the literal word `omit` leaves the line out entirely.
+# EN_CATEGORY / ZH_CATEGORY: the value of the mandatory category line (default a floored one);
+# EN_RATIONALE / ZH_RATIONALE: an optional "Severity rationale" paragraph.
+# The literal word `omit` leaves the line out entirely.
 EN_REGRESSION="${EN_REGRESSION:-no}"
 ZH_REGRESSION="${ZH_REGRESSION:-否}"
+EN_CATEGORY="${EN_CATEGORY:-functional-loss}"
+ZH_CATEGORY="${ZH_CATEGORY:-功能缺失}"
+EN_RATIONALE="${EN_RATIONALE:-omit}"
+ZH_RATIONALE="${ZH_RATIONALE:-omit}"
 
-regression_line() {
+finding_line() {
     local label="$1" value="$2"
     [ "$value" = omit ] || printf -- '- **%s**%s\n' "$label" "$value"
+}
+
+rationale_paragraph() {
+    local label="$1" value="$2"
+    [ "$value" = omit ] || printf -- '\n**%s** %s\n' "$label" "$value"
 }
 
 write_docs() {
@@ -67,8 +78,10 @@ write_docs() {
 ### F-01 · fixture finding
 
 - **Severity**: $en_severity
-$(regression_line Regression ": $EN_REGRESSION")
+$(finding_line Category ": $EN_CATEGORY")
+$(finding_line Regression ": $EN_REGRESSION")
 - **Where**: \`src/Foo.java:$en_anchor\`
+$(rationale_paragraph "Severity rationale." "$EN_RATIONALE")
 EOF
     cat > "$REPO/review-docs/pr-123-review.zh.md" <<EOF
 # 代码评审 — PR #123：fixture
@@ -84,8 +97,10 @@ EOF
 ### F-01 · fixture finding
 
 - **等级**：$zh_severity
-$(regression_line 回归 "：$ZH_REGRESSION")
+$(finding_line 类别 "：$ZH_CATEGORY")
+$(finding_line 回归 "：$ZH_REGRESSION")
 - **位置**：\`src/Foo.java:$zh_anchor\`
+$(rationale_paragraph "定级理由。" "$ZH_RATIONALE")
 EOF
 }
 
@@ -99,21 +114,63 @@ write_meta "$HEAD_SHA"
 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
 RESULT="$(verify_json)"
 jq -e --arg head "$HEAD_SHA" \
-    '.commit == $head and .verdict == "APPROVE" and .findings.minor == 1 and .regressions == 0 and .rounds == 2 and .converged' \
+    '.commit == $head and .verdict == "APPROVE" and .findings.minor == 1 and .regressions == 0 and .floored_regressions == 0 and .rounds == 2 and .converged' \
     <<<"$RESULT" >/dev/null || fail "verified result JSON is wrong"
 pass "matching documents produce one verified result"
 
-EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
-expect_failure "a regression cannot be rated Minor" "at least Major" verify_json
+# ---- category-aware regression floor
+for category in "functional-bug 功能缺陷" "functional-loss 功能缺失" "data-error 数据错误" \
+                "resource-leak 资源泄露" "performance 性能降低"; do
+    set -- $category
+    EN_CATEGORY="$1" ZH_CATEGORY="$2" EN_REGRESSION=yes ZH_REGRESSION=是 \
+        write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+    expect_failure "a $1 regression cannot be rated Minor" "a $1 regression against the merge base is at least Major" verify_json
+done
 
 EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" APPROVE Nit Nit 2 converged 已收敛
-expect_failure "a regression cannot be rated Nit" "at least Major" verify_json
+expect_failure "a floored regression cannot be rated Nit" "at least Major" verify_json
 
 EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" REQUEST_CHANGES Major Major 2 converged 已收敛
 RESULT="$(verify_json)"
-jq -e '.verdict == "REQUEST_CHANGES" and .findings.major == 1 and .regressions == 1' <<<"$RESULT" >/dev/null \
-    || fail "regression count is not reported"
-pass "a Major regression is counted in the verified result"
+jq -e '.verdict == "REQUEST_CHANGES" and .findings.major == 1 and .regressions == 1 and .floored_regressions == 1' <<<"$RESULT" >/dev/null \
+    || fail "regression counts are not reported"
+pass "a Major floored regression is counted in the verified result"
+
+EN_CATEGORY=observability ZH_CATEGORY=可观测性 EN_REGRESSION=yes ZH_REGRESSION=是 \
+    write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "a non-floored regression below Major needs a rationale" \
+    "add a **Severity rationale** paragraph" verify_json
+
+for category in "observability 可观测性" "test-coverage 测试覆盖" "wording 措辞" "maintainability 可维护性"; do
+    set -- $category
+    EN_CATEGORY="$1" ZH_CATEGORY="$2" EN_REGRESSION=yes ZH_REGRESSION=是 \
+        EN_RATIONALE="only troubleshooting convenience is affected." ZH_RATIONALE="只影响排障便利性。" \
+        write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+    RESULT="$(verify_json)"
+    jq -e '.verdict == "APPROVE" and .findings.minor == 1 and .regressions == 1 and .floored_regressions == 0' <<<"$RESULT" >/dev/null \
+        || fail "a $1 regression with a rationale was not accepted at Minor"
+    pass "a $1 regression with a rationale may stay Minor"
+done
+
+EN_CATEGORY='functional-bug (concurrency: lock order)' ZH_CATEGORY='功能缺陷（并发：锁序）' \
+    EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" REQUEST_CHANGES Major Major 2 converged 已收敛
+RESULT="$(verify_json)"
+jq -e '.floored_regressions == 1' <<<"$RESULT" >/dev/null || fail "a domain note after the category was not accepted"
+pass "a parenthetical domain note after the category is accepted"
+
+EN_CATEGORY='Functional Bug' ZH_CATEGORY='功能性 bug' EN_REGRESSION=yes ZH_REGRESSION=是 \
+    write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "category spelling variants still resolve to the floored class" \
+    "a functional-bug regression against the merge base is at least Major" verify_json
+
+EN_CATEGORY=omit write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "the category line is mandatory" "has no Category/类别 line" verify_json
+
+EN_CATEGORY=security ZH_CATEGORY=安全 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "an unknown category is rejected" "unknown category 'security'" verify_json
+
+EN_CATEGORY=observability ZH_CATEGORY=功能缺失 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "EN and ZH categories must agree" "categories differ" verify_json
 
 EN_REGRESSION='no (base 699-701 already lacked the reset)' ZH_REGRESSION='否（base 本来就没有）' \
     write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
