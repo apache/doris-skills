@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate both doris-repo-review documents and emit their agreed result."""
+"""Validate both doris-repo-review documents and emit their agreed result.
+
+Besides head, anchors, verdict, rounds and convergence, every finding must name its category
+and state whether it is a regression against the merge base. A regression in a category whose
+consequence is functional, data, resource, or performance (see CATEGORIES) is at least Major; a
+regression anywhere else may stay Minor/Nit only with a written severity rationale."""
 
 from __future__ import annotations
 
@@ -17,6 +22,47 @@ SEVERITY_RE = re.compile(
     r"^-\s+\*\*(?:Severity|等级)\*\*\s*[:：]\s*(Blocker|Major|Minor|Nit)\s*$",
     re.IGNORECASE,
 )
+# `- **Regression**: yes` / `- **回归**：是`, optionally followed by one parenthetical note or
+# the template's HTML comment.
+REGRESSION_RE = re.compile(
+    r"^-\s+\*\*(?:Regression|回归)\*\*\s*[:：]\s*(yes|no|是|否)\s*"
+    r"(?:[(（][^()（）]*[)）]|<!--.*?-->)?\s*$",
+    re.IGNORECASE,
+)
+REGRESSION_YES = ("yes", "是")
+# `- **Category**: functional-bug (concurrency: lock order)` / `- **类别**：功能缺陷（并发）`.
+# The class comes first; one parenthetical domain note or the template's HTML comment may follow.
+CATEGORY_RE = re.compile(
+    r"^-\s+\*\*(?:Category|类别)\*\*\s*[:：]\s*(.+?)\s*"
+    r"(?:[(（][^()（）]*[)）]|<!--.*?-->)?\s*$",
+    re.IGNORECASE,
+)
+# Canonical category -> (regression floor applies?, accepted spellings). Spellings are compared
+# case-insensitively with spaces, hyphens and underscores removed, so `functional bug`,
+# `functional_bug` and `功能性 bug` all resolve. Anything else is rejected: an unknown category
+# would silently escape the floor.
+CATEGORIES: dict[str, tuple[bool, tuple[str, ...]]] = {
+    "functional-bug": (True, ("functional-bug", "功能缺陷", "功能性bug", "功能bug")),
+    "functional-loss": (True, ("functional-loss", "功能缺失", "功能性缺失")),
+    "data-error": (True, ("data-error", "数据错误")),
+    "resource-leak": (True, ("resource-leak", "资源泄露", "资源泄漏")),
+    "performance": (True, ("performance", "性能降低", "性能")),
+    "observability": (False, ("observability", "可观测性")),
+    "test-coverage": (False, ("test-coverage", "测试覆盖")),
+    "wording": (False, ("wording", "措辞")),
+    "maintainability": (False, ("maintainability", "可维护性")),
+}
+CATEGORY_ALIASES: dict[str, str] = {
+    re.sub(r"[\s_-]", "", alias).casefold(): canonical
+    for canonical, (_, aliases) in CATEGORIES.items()
+    for alias in aliases
+}
+FLOORED_CATEGORIES = tuple(name for name, (floored, _) in CATEGORIES.items() if floored)
+# A regression - behaviour that differs from the merge base without the PR declaring it
+# intended - in a floored category is at least Major, whatever the width of its trigger or the
+# size of its fix. In any other category it may stay below Major only with a written rationale.
+REGRESSION_SEVERITY_FLOOR = ("Blocker", "Major")
+RATIONALE_RE = re.compile(r"^\*\*(?:Severity rationale|定级理由)\s*[.。:：]?\s*\*\*")
 HEAD_RE = re.compile(r"^\|\s*PR head\s*\|\s*`([0-9a-fA-F]{40})`")
 VERDICT_RE = re.compile(r"^\|\s*(?:Verdict|结论)\s*\|\s*\*\*(APPROVE|REQUEST_CHANGES)\*\*\s*\|")
 ROUNDS_RE = re.compile(r"^\|\s*(?:Rounds|轮次)\s*\|(.*?)\|\s*$")
@@ -63,6 +109,9 @@ class Document:
     converged: bool | None = None
     finding_ids: list[str] = field(default_factory=list)
     severities: dict[str, str] = field(default_factory=dict)
+    regressions: dict[str, bool] = field(default_factory=dict)
+    categories: dict[str, str] = field(default_factory=dict)
+    rationales: set[str] = field(default_factory=set)
     anchors: list[Anchor] = field(default_factory=list)
     finding_anchors: dict[str, list[Anchor]] = field(default_factory=lambda: defaultdict(list))
 
@@ -149,6 +198,31 @@ def parse_document(path: Path, errors: list[str]) -> Document:
             else:
                 document.severities[current_finding] = match.group(1).title()
 
+        if match := REGRESSION_RE.match(line):
+            if current_finding is None:
+                errors.append(f"{path}:{lineno}: regression flag is not under a finding")
+            elif current_finding in document.regressions:
+                errors.append(f"{path}:{lineno}: duplicate regression flag for {current_finding}")
+            else:
+                document.regressions[current_finding] = match.group(1).lower() in REGRESSION_YES
+
+        if match := CATEGORY_RE.match(line):
+            category = canonical_category(match.group(1))
+            if current_finding is None:
+                errors.append(f"{path}:{lineno}: category is not under a finding")
+            elif category is None:
+                errors.append(
+                    f"{path}:{lineno}: unknown category {match.group(1).strip()!r} for "
+                    f"{current_finding}; use one of {', '.join(CATEGORIES)}"
+                )
+            elif current_finding in document.categories:
+                errors.append(f"{path}:{lineno}: duplicate category for {current_finding}")
+            else:
+                document.categories[current_finding] = category
+
+        if current_finding is not None and RATIONALE_RE.match(line):
+            document.rationales.add(current_finding)
+
         for match in ANCHOR_RE.finditer(line):
             anchor = Anchor(
                 path=match.group(1),
@@ -174,6 +248,30 @@ def parse_document(path: Path, errors: list[str]) -> Document:
     for finding in document.finding_ids:
         if finding not in document.severities:
             errors.append(f"{path}: finding {finding} has no severity")
+        if finding not in document.categories:
+            errors.append(
+                f"{path}: finding {finding} has no Category/类别 line (one of {', '.join(CATEGORIES)})"
+            )
+        if finding not in document.regressions:
+            errors.append(
+                f"{path}: finding {finding} has no Regression/回归 line (yes/no against the merge base)"
+            )
+        elif document.regressions[finding] and finding in document.categories:
+            severity = document.severities.get(finding)
+            category = document.categories[finding]
+            if severity in (None, *REGRESSION_SEVERITY_FLOOR):
+                pass
+            elif category in FLOORED_CATEGORIES:
+                errors.append(
+                    f"{path}: finding {finding} is a regression in category {category} but rated "
+                    f"{severity}; a {category} regression against the merge base is at least Major"
+                )
+            elif finding not in document.rationales:
+                errors.append(
+                    f"{path}: finding {finding} is a regression in category {category} rated "
+                    f"{severity}; add a **Severity rationale** paragraph saying why the behaviour "
+                    "change is acceptable at that severity"
+                )
         if not document.finding_anchors.get(finding):
             errors.append(f"{path}: finding {finding} has no `path:line` anchor")
 
@@ -189,6 +287,23 @@ def severity_counts(document: Document) -> dict[str, int]:
         name.casefold(): sum(1 for value in document.severities.values() if value == name)
         for name in SEVERITIES
     }
+
+
+def canonical_category(value: str) -> str | None:
+    return CATEGORY_ALIASES.get(re.sub(r"[\s_-]", "", value).casefold())
+
+
+def regression_count(document: Document) -> int:
+    return sum(1 for value in document.regressions.values() if value)
+
+
+def floored_regression_count(document: Document) -> int:
+    """Regressions whose category carries the Major floor - never present in a valid APPROVE."""
+    return sum(
+        1
+        for finding, value in document.regressions.items()
+        if value and document.categories.get(finding) in FLOORED_CATEGORIES
+    )
 
 
 def finding_anchor_keys(document: Document, finding: str) -> list[tuple[str, int, int]]:
@@ -286,6 +401,10 @@ def main() -> int:
             errors.append("EN and ZH finding IDs or order differ")
         if left.severities != right.severities:
             errors.append("EN and ZH finding severities differ")
+        if left.regressions != right.regressions:
+            errors.append("EN and ZH regression flags differ")
+        if left.categories != right.categories:
+            errors.append("EN and ZH finding categories differ")
         for finding in sorted(set(left.finding_ids) & set(right.finding_ids)):
             if finding_anchor_keys(left, finding) != finding_anchor_keys(right, finding):
                 errors.append(f"EN and ZH anchors differ for {finding}")
@@ -314,6 +433,8 @@ def main() -> int:
         "commit": head_sha,
         "verdict": documents[0].verdict,
         "findings": severity_counts(documents[0]),
+        "regressions": regression_count(documents[0]),
+        "floored_regressions": floored_regression_count(documents[0]),
         "rounds": documents[0].rounds,
         "converged": documents[0].converged,
     }

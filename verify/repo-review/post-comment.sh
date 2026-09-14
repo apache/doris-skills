@@ -42,10 +42,23 @@ DOCS_ROOT=$REPO
 EOF
 }
 
+# write_docs <head> <verdict> <severity> <rounds> <convergence> [regression=no] [category=functional-loss]
+# A non-floored category (observability, ...) gets a severity rationale so the verifier accepts
+# the regression below Major; the poster is then the only remaining gate.
 write_docs() {
     local head="$1" verdict="$2" severity="$3" rounds="$4" convergence="$5"
-    local zh_convergence=已收敛
+    local regression="${6:-no}" category="${7:-functional-loss}"
+    local zh_convergence=已收敛 zh_regression=否 zh_category=功能缺失
+    local en_rationale="" zh_rationale=""
     [ "$convergence" = converged ] || zh_convergence=未收敛
+    [ "$regression" = no ] || zh_regression=是
+    case "$category" in
+        functional-loss) ;;
+        observability) zh_category=可观测性
+            en_rationale='**Severity rationale.** only a debug line lost detail.'
+            zh_rationale='**定级理由。** 只是一条 debug 日志少了细节。' ;;
+        *) fail "fixture has no ZH form for category $category" ;;
+    esac
     cat > "$REPO/review-docs/pr-123-review.en.md" <<EOF
 # Code Review — PR #123: fixture
 | | |
@@ -55,7 +68,11 @@ write_docs() {
 | Rounds | $rounds of max 3, $convergence |
 ### F-01 · fixture
 - **Severity**: $severity
+- **Category**: $category
+- **Regression**: $regression
 - **Where**: \`src/Foo.java:1\`
+
+$en_rationale
 EOF
     cat > "$REPO/review-docs/pr-123-review.zh.md" <<EOF
 # 代码评审 — PR #123：fixture
@@ -66,7 +83,11 @@ EOF
 | 轮次 | 共 $rounds 轮（上限 3），$zh_convergence |
 ### F-01 · fixture
 - **等级**：$severity
+- **类别**：$zh_category
+- **回归**：$zh_regression
 - **位置**：\`src/Foo.java:1\`
+
+$zh_rationale
 EOF
 }
 
@@ -133,6 +154,27 @@ expect_failure "unterminated malformed note is rejected" "every note line" \
 write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged
 expect_failure "REQUEST_CHANGES never posts" "verdict is REQUEST_CHANGES" \
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+write_docs "$HEAD_SHA" APPROVE Minor 2 converged yes
+expect_failure "a floored regression rated Minor never posts" "failed verification" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged yes
+expect_failure "a floored regression finding never posts" "verdict is REQUEST_CHANGES" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+write_docs "$HEAD_SHA" APPROVE Minor 2 converged yes observability
+expect_failure "an undisclosed non-floored regression never posts" "the receipt must disclose" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+DISCLOSURE_NOTES="$TMP_ROOT/disclosure-notes.md"
+printf -- '- F-01 (observability, undeclared behaviour change) `src/Foo.java:1` — a debug line lost detail; acceptable.\n' > "$DISCLOSURE_NOTES"
+"$S/post-pass-comment.sh" --ctx "$CTX" --notes-file "$DISCLOSURE_NOTES" --dry-run > "$TMP_ROOT/disclosed"
+grep -Fq "F-01 (observability, undeclared behaviour change)" "$CTX/pr-comment.md" \
+    || fail "disclosed regression note is missing from the receipt"
+grep -Fq "findings: {blocker: 0, major: 0, minor: 1, nit: 0}" "$CTX/pr-comment.md" \
+    || fail "receipt findings are wrong for a disclosed regression"
+pass "a disclosed non-floored regression rated Minor still posts"
 
 write_docs "$HEAD_SHA" APPROVE Minor 3 'did not converge'
 expect_failure "non-converged review never posts" "did not converge" \
