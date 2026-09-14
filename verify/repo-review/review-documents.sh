@@ -36,6 +36,16 @@ DOCS_ROOT=$REPO
 EOF
 }
 
+# EN_REGRESSION / ZH_REGRESSION: the value of the mandatory regression line (default no / 否);
+# the literal word `omit` leaves the line out entirely.
+EN_REGRESSION="${EN_REGRESSION:-no}"
+ZH_REGRESSION="${ZH_REGRESSION:-否}"
+
+regression_line() {
+    local label="$1" value="$2"
+    [ "$value" = omit ] || printf -- '- **%s**%s\n' "$label" "$value"
+}
+
 write_docs() {
     local head="$1" verdict="$2" en_severity="$3" zh_severity="$4"
     local rounds="$5" en_convergence="$6" zh_convergence="$7"
@@ -57,6 +67,7 @@ write_docs() {
 ### F-01 · fixture finding
 
 - **Severity**: $en_severity
+$(regression_line Regression ": $EN_REGRESSION")
 - **Where**: \`src/Foo.java:$en_anchor\`
 EOF
     cat > "$REPO/review-docs/pr-123-review.zh.md" <<EOF
@@ -73,6 +84,7 @@ EOF
 ### F-01 · fixture finding
 
 - **等级**：$zh_severity
+$(regression_line 回归 "：$ZH_REGRESSION")
 - **位置**：\`src/Foo.java:$zh_anchor\`
 EOF
 }
@@ -87,9 +99,36 @@ write_meta "$HEAD_SHA"
 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
 RESULT="$(verify_json)"
 jq -e --arg head "$HEAD_SHA" \
-    '.commit == $head and .verdict == "APPROVE" and .findings.minor == 1 and .rounds == 2 and .converged' \
+    '.commit == $head and .verdict == "APPROVE" and .findings.minor == 1 and .regressions == 0 and .rounds == 2 and .converged' \
     <<<"$RESULT" >/dev/null || fail "verified result JSON is wrong"
 pass "matching documents produce one verified result"
+
+EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "a regression cannot be rated Minor" "at least Major" verify_json
+
+EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" APPROVE Nit Nit 2 converged 已收敛
+expect_failure "a regression cannot be rated Nit" "at least Major" verify_json
+
+EN_REGRESSION=yes ZH_REGRESSION=是 write_docs "$HEAD_SHA" REQUEST_CHANGES Major Major 2 converged 已收敛
+RESULT="$(verify_json)"
+jq -e '.verdict == "REQUEST_CHANGES" and .findings.major == 1 and .regressions == 1' <<<"$RESULT" >/dev/null \
+    || fail "regression count is not reported"
+pass "a Major regression is counted in the verified result"
+
+EN_REGRESSION='no (base 699-701 already lacked the reset)' ZH_REGRESSION='否（base 本来就没有）' \
+    write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+RESULT="$(verify_json)"
+jq -e '.regressions == 0' <<<"$RESULT" >/dev/null || fail "annotated regression flag was not accepted"
+pass "a parenthetical note after the regression flag is accepted"
+
+EN_REGRESSION=omit write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "the regression line is mandatory" "has no Regression/回归 line" verify_json
+
+EN_REGRESSION=yes ZH_REGRESSION=否 write_docs "$HEAD_SHA" REQUEST_CHANGES Major Major 2 converged 已收敛
+expect_failure "EN and ZH regression flags must agree" "regression flags differ" verify_json
+
+EN_REGRESSION=maybe write_docs "$HEAD_SHA" APPROVE Minor Minor 2 converged 已收敛
+expect_failure "an unparseable regression value is rejected" "has no Regression/回归 line" verify_json
 
 write_docs "$OTHER_SHA" APPROVE Minor Minor 2 converged 已收敛
 expect_failure "document commit must match context" "context head" verify_json

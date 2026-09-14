@@ -13,7 +13,7 @@ permanent, and what it destroys is the only record of what an earlier review alr
 and dismissed. Re-running against the *same* head overwrites that head's pair, and only that one.
 
 The ZH document is a real Chinese review, not a machine translation of the EN one: same facts,
-same anchors, same IDs, but idiomatic Chinese. Identifiers, file paths, log messages, config
+same anchors, same IDs, same severities and regression flags, but idiomatic Chinese. Identifiers, file paths, log messages, config
 names, code snippets, and the severity words (`Blocker` / `Major` / `Minor` / `Nit`) stay in
 their original form in both documents.
 
@@ -50,6 +50,46 @@ without a compat path, or a broken build/test contract. `Major` = real defect or
 guarantee that will bite in production or during upgrade. `Minor` = worth fixing, not urgent.
 `Nit` = style or wording.
 
+## Regression flag and severity floors
+
+Every finding carries a second mandatory line right after its severity:
+
+```markdown
+- **Regression**: yes        <!-- EN;  ZH: - **回归**：是 / 否 -->
+```
+
+`yes` means the behaviour at HEAD differs from the base in a way the PR body does not declare as
+intended — the cell of the differential table that the author did not ask for. `no` means the
+defect was already there (the PR merely exposes, documents, or moves it) or the change is the one
+the PR set out to make. The evidence is `git show <BASE_SHA>:<path>`; name it in the finding.
+`verify-review-docs.py` rejects a finding without the line and rejects EN/ZH documents whose flags
+disagree.
+
+The flag drives a floor that the verifier enforces and that no amount of "but it is narrow"
+overrides:
+
+| Condition | Floor |
+|---|---|
+| `Regression: yes` in a correctness, concurrency, lifecycle, compatibility, config, or data category | at least `Major` |
+| `Regression: yes` anywhere else (observability, wording, tests) | judged normally, but say why the behaviour change is acceptable |
+| a PR presented as behaviour-preserving (`[refactor]`, `[chore]`, "Behavior changed: No", or any wording that claims equivalence): **every** differing cell of the D1 differential table that the PR body does not name as intended | `Regression: yes`, hence at least `Major` — the reviewer's job is to find the cell, not to decide whether it matters |
+
+Severity is the consequence *when* the finding triggers — what is wrong, leaked, lost, or
+silently skipped — never the probability that it triggers. A narrow trigger (one protocol, cloud
+only, a retry that has to fail twice), a rare environment, or a one-line fix is not a discount. The
+review of apache/doris#67900 rated a per-attempt reset that the PR had dropped as `Minor` because
+the trigger was "Flight + replan + failing retry" and the fix was one line; the connector statement
+scope it leaked was raised again by the next reviewer as a must-fix. That is the case this section
+exists to prevent.
+
+**Downgrading needs a written rationale.** When the main agent rates a candidate below what the
+subagent proposed, or dismisses a correctness / concurrency / lifecycle candidate, the finding (or
+the "Considered and Dismissed" row) must carry a **Severity rationale** paragraph: the consequence
+analysis — what happens when it triggers, who notices, what is left leaked or wrong — and
+explicitly why that is not `Major`. "Narrow", "one-line fix", or "no wrong result" alone is not a
+rationale. SKILL.md step 6 additionally dispatches a severity-challenge subagent before such a
+downgrade is final.
+
 ---
 
 ## English template
@@ -84,6 +124,7 @@ guarantee that will bite in production or during upgrade. `Minor` = worth fixing
 ### F-01 · <one-line title>
 
 - **Severity**: Blocker
+- **Regression**: yes <!-- yes = behaviour differs from the base and the PR body does not declare it intended; no = pre-existing or intended. Mandatory; a regression is at least Major. -->
 - **Where**: `path/to/File.java:412-430`
 - **Category**: correctness / concurrency / lifecycle / compatibility / config / performance / observability / test coverage
 
@@ -96,6 +137,10 @@ guarantee that will bite in production or during upgrade. `Minor` = worth fixing
 **Why it happens.** <call chain with `path:line` citations, the invariant that breaks>
 
 **When it bites.** <a concrete trigger scenario — who calls what, in which order, with which data>
+
+**Severity rationale.** <required whenever the severity is below what a subagent proposed, or a
+regression is rated at the floor rather than Blocker: the consequence when it triggers and why that
+is (not) worse. Omit for findings rated as proposed.>
 
 **Suggested fix.**
 
@@ -184,6 +229,7 @@ out. This is what makes the review auditable — do not silently drop a concern.
 ### F-01 · <一句话标题>
 
 - **等级**：Blocker
+- **回归**：是 <!-- 是 = HEAD 的行为与 base 不同且 PR 描述没有声明这是有意的；否 = 既有问题或有意改动。必填；回归至少是 Major。 -->
 - **位置**：`path/to/File.java:412-430`
 - **类别**：正确性 / 并发 / 生命周期 / 兼容性 / 配置 / 性能 / 可观测性 / 测试覆盖
 
@@ -196,6 +242,8 @@ out. This is what makes the review auditable — do not silently drop a concern.
 **为什么会这样。** <调用链，带 `path:line` 引用，说明被破坏的不变式>
 
 **什么时候会踩到。** <具体触发场景：谁在什么顺序上调用了什么、数据长什么样>
+
+**定级理由。** <当等级低于子 agent 提议、或回归只定在 Major 下限而非 Blocker 时必填：触发后的后果是什么、为什么（不）更严重。等级与提议一致时可省略。>
 
 **修改建议。**
 

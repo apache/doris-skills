@@ -350,7 +350,8 @@ Candidate format:
   Status:
   Path:
   Line:          <new-side line or start-end, must match changed_line_ranges.txt or be justified>
-  Severity:      Blocker | Major | Minor | Nit
+  Severity:      Blocker | Major | Minor | Nit   <from the consequence when it triggers, not its probability>
+  Regression:    yes | no   <does HEAD differ from `git show BASE:<path>` in a way the PR body does not declare? cite base lines; a regression in correctness/concurrency/lifecycle/compatibility/config/data is at least Major>
   Claim:
   Evidence:      <call chain / concrete trigger scenario / file:line citations>
   Duplicate relationship:
@@ -387,6 +388,9 @@ Owned by the main agent.
   Source IDs:
   Status:                                  <accepted | dismissed_with_evidence | duplicated>
   Severity:
+  Regression:                              <yes | no, with the base evidence; yes in a correctness/concurrency/lifecycle/compatibility/config/data category is at least Major>
+  Severity rationale:                      <required when rated below the subagent's proposal: consequence when it triggers, why not Major>
+  Severity challenge:                      <UPHOLD_DOWNGRADE | RAISE_SEVERITY | n/a - from the section-E subagent>
   Path:
   Line:
   Claim:

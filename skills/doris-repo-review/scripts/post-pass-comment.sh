@@ -10,6 +10,8 @@
 #
 # Runtime fields come from review-runtime.json. Review fields come directly from
 # verify-review-docs.py. The agent supplies notes, never receipt fields or format.
+# Refuses on anything that is not a converged APPROVE with zero Blocker/Major findings and
+# zero findings flagged as regressions against the base.
 #
 # Rendered body: <ctx>/pr-comment.md   Posted URL: <ctx>/pr-comment.url
 set -euo pipefail
@@ -82,12 +84,22 @@ F_BLOCKER="$(jq -er '.findings.blocker | numbers' <<<"$RESULT_JSON")"
 F_MAJOR="$(jq -er '.findings.major | numbers' <<<"$RESULT_JSON")"
 F_MINOR="$(jq -er '.findings.minor | numbers' <<<"$RESULT_JSON")"
 F_NIT="$(jq -er '.findings.nit | numbers' <<<"$RESULT_JSON")"
+F_REGRESSIONS="$(jq -er '.regressions | numbers' <<<"$RESULT_JSON")" || {
+    echo "ERROR: the verifier did not report a regression count; update verify-review-docs.py." >&2
+    exit 2
+}
 
 [ "$RESULT_COMMIT" = "$NORMALIZED_HEAD_SHA" ] || { echo "ERROR: review documents target another commit." >&2; exit 2; }
 [ "$VERDICT" = "APPROVE" ] || { echo "ERROR: review verdict is $VERDICT. Nothing was posted." >&2; exit 1; }
 [ "$CONVERGED" = "true" ] || { echo "ERROR: review did not converge. Nothing was posted." >&2; exit 1; }
 [ "$F_BLOCKER" -eq 0 ] && [ "$F_MAJOR" -eq 0 ] || {
     echo "ERROR: Blocker or Major findings cannot produce a PASS comment." >&2
+    exit 1
+}
+# The verifier already floors a regression at Major, so this only fires when the two scripts
+# disagree; a PASS receipt must never sit on top of an undeclared behaviour change.
+[ "$F_REGRESSIONS" -eq 0 ] || {
+    echo "ERROR: $F_REGRESSIONS finding(s) are marked as regressions against the base; a PASS receipt cannot be issued. Nothing was posted." >&2
     exit 1
 }
 

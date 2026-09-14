@@ -47,10 +47,10 @@ $S/save-run-state.sh --ctx "$CTX" --verdict ... --findings b,m,mi,n  # step 11: 
 | `scripts/align-to-pr.sh` | Resolve the PR, diagnose how the current directory relates to it, align it to the PR head |
 | `scripts/prepare-review-context.sh` | Produce the authoritative diff, new-side line ranges, required AGENTS.md list, existing comments, ledger skeleton |
 | `scripts/coverage-report.sh` | Mechanical check of which changed files no ledger file has mentioned yet |
-| `scripts/verify-review-docs.py` | Validate commit, anchors, EN/ZH agreement, verdict, findings, rounds, and convergence |
+| `scripts/verify-review-docs.py` | Validate commit, anchors, EN/ZH agreement, verdict, findings, regression flags and their `Major` floor, rounds, and convergence |
 | `scripts/record-review-runtime.sh` | Record the qualified reviewer model, effort, and exact commit |
 | `scripts/review-runtime-policy.sh` | The exact model and effort allowlist for a pipeline-equivalent review |
-| `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a pass |
+| `scripts/post-pass-comment.sh` | Render and post the machine-readable PASS comment; refuses everything that is not a converged, regression-free pass |
 | `scripts/save-run-state.sh` | Persist this run's merged ledger under the stable per-PR state directory, so the next review inherits its dismissals |
 | `references/prompts.md` | Subagent prompt templates (CI wording, carried over verbatim) |
 | `references/doc-templates.md` | Templates for both documents, anchor format, verdict rule |
@@ -369,10 +369,29 @@ candidate into `$CTX/ledger/main-merged.md`:
   `pr_review_threads.md`.
 - **Assign a status**: `accepted` / `dismissed_with_evidence` / `duplicated`. A dismissal must come
   with concrete code evidence, which goes verbatim into the document's "Considered and Dismissed".
+- **Flag regressions**: for every accepted candidate decide `Regression: yes | no` against the
+  base — does HEAD behave differently from `git show $BASE_SHA:<path>` in a way the PR body does not
+  declare as intended? Record the flag and its evidence in `main-merged.md`; it becomes the
+  mandatory `Regression` line of the finding. Then apply the severity floors of
+  `references/doc-templates.md`: a regression in a correctness / concurrency / lifecycle /
+  compatibility / config / data category is **at least `Major`**, and for a PR presented as
+  behaviour-preserving every undeclared differing cell of the differential table is such a
+  regression. Severity is the consequence when it triggers, not the probability; "narrow trigger",
+  "cloud only", "one-line fix" and "no wrong result" are not discounts. `verify-review-docs.py`
+  rejects a regression rated `Minor`/`Nit`, so decide it here, not at document time.
+- **Severity challenge before a downgrade**: when you intend to rate a candidate below what its
+  subagent proposed, or to dismiss a correctness / concurrency / lifecycle candidate, first write the
+  *Severity rationale* (consequence when it triggers, who notices, what stays leaked or wrong, why
+  that is not `Major`) into `main-merged.md`, then dispatch **one** severity-challenge subagent with
+  the prompt of `references/prompts.md` section E — its only job is to argue the higher severity
+  from primary sources. Finalize the severity only after it returns, and carry the rationale into the
+  finding. It is one short agent; skipping it is how apache/doris#67900 shipped a `Minor` that the
+  next reviewer had to send back as a must-fix.
 - **Fill the risk items back in**: update `Status` and `Final conclusion` for every entry in
   `00-main-risk-scan.md`.
 
-When this step ends, **no candidate may be left without a status**.
+When this step ends, **no candidate may be left without a status, a regression flag, or — where
+it was downgraded — a severity rationale**.
 
 ### 6a. Run the coverage report at the end of every round
 
@@ -472,9 +491,11 @@ already exists, you are re-running against an unchanged head: overwrite that one
 - The document header must state: the PR link and state, the **head sha actually reviewed**, the
   diff range, the review directory (`WORKDIR`), and the `branch check` / `commit check` results
   from step 1.
-- Every finding must carry: a severity, a `path:line` anchor, a verbatim snippet, and the four
-  parts **what is wrong / why it happens / when it bites / suggested fix**. Give a diff patch when
-  the fix is small and self-contained; use prose only for architectural problems.
+- Every finding must carry: a severity, a `Regression: yes | no` line (with the base evidence),
+  a `path:line` anchor, a verbatim snippet, and the four parts **what is wrong / why it happens /
+  when it bites / suggested fix** — plus a **severity rationale** whenever the severity is below what
+  a subagent proposed. Give a diff patch when the fix is small and self-contained; use prose only
+  for architectural problems.
 - The "Critical Checkpoints" table needs a conclusion per row; mark a non-applicable one `n/a` with
   a half-line reason - **never delete the row**.
 - "Response to Review Focus" answers each of the user's focus points.
@@ -495,15 +516,18 @@ python3 $S/verify-review-docs.py --ctx "$CTX" \
     --doc review-docs/pr-<N>-review.zh.md
 ```
 
-It validates the reviewed head, anchors, EN/ZH finding order and severity, verdict, rounds, and
-convergence. Fix every error before continuing.
+It validates the reviewed head, anchors, EN/ZH finding order, severity and regression flags, the
+regression severity floor, verdict, rounds, and convergence. Fix every error before continuing —
+and if the error is "marked as a regression but rated Minor", the fix is the severity (and with it
+the verdict), not the flag.
 
 ---
 
 ## 10. Post the PASS comment to the PR
 
-**Only when the verdict is APPROVE**, the review converged, and step 9 passed. A
-REQUEST_CHANGES or non-converged review posts nothing - say so in the closing report and stop.
+**Only when the verdict is APPROVE**, the review converged, no finding is flagged as a
+regression, and step 9 passed. A REQUEST_CHANGES, non-converged, or regression-carrying review
+posts nothing - say so in the closing report and stop.
 
 Write optional notes and run the poster once:
 
@@ -518,8 +542,8 @@ $S/post-pass-comment.sh --ctx "$CTX" \
 ```
 
 The poster reads model, effort, and commit from `review-runtime.json`; it invokes
-`verify-review-docs.py` itself for verdict, findings, rounds, and convergence; then it rechecks the
-live PR head. A refusal is final. The normal flow posts immediately; `--dry-run` exists only for
+`verify-review-docs.py` itself for verdict, findings, regression count, rounds, and convergence;
+then it rechecks the live PR head. A refusal is final. The normal flow posts immediately; `--dry-run` exists only for
 maintainer testing. Same account plus same commit updates the existing comment, while a new commit
 creates a new one. Keep the schema in `references/pr-comment-format.md` machine-generated.
 
@@ -573,7 +597,7 @@ Tell the user:
 | Fetch existing inline threads (30 threads / 1200 chars) | Same jq |
 | Text after `/review` = review focus | Free text after the PR URL → `--focus` |
 | Single-file ledger with sections | A `ledger/` directory, one file per owner |
-| Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Same shape, three local additions: every risk item carries a premise check the main agent runs before dispatch (4.1); round 1 goes out in two waves so the ledger can deduplicate (5.1); a round converges on **severity plus coverage**, not on "no new candidates at all" (7) |
+| Main risk scan → 1-3 full-review subagents + risk-focused → merge → ≤3 rounds | Same shape, four local additions: every risk item carries a premise check the main agent runs before dispatch (4.1); round 1 goes out in two waves so the ledger can deduplicate (5.1); every finding carries a regression flag with a `Major` floor and a downgrade needs a written rationale plus a severity-challenge agent (6); a round converges on **severity plus coverage**, not on "no new candidates at all" (7) |
 | CI reviews one push in isolation | Earlier runs of the same PR are loaded from a stable state directory and read as input (2.1); documents are named by head sha and never overwritten (9) |
 | `gh pr review` / Reviews API posting inline comments | **Two `review-docs/` documents (EN + ZH) with `path:line` anchors** |
 | CI's review verdict is visible on the PR itself | On a qualified converged pass, one automatic `doris-repo-review/v1` comment bound to the exact commit; otherwise nothing |
@@ -587,6 +611,11 @@ Tell the user:
   for as long as you keep looking. What has to stop moving is the *verdict* - see step 7. Two runs
   in a row reporting "did not converge" while the blocking findings were settled in round 1 is a
   broken criterion, not a deep PR.
+- **Discounting a regression because its trigger is narrow or its fix is one line.** Severity is
+  what happens when it triggers, not how often. A per-attempt reset that a refactor dropped is a
+  regression in lifecycle whether it needs "Flight + replan + a failing retry" or not; rate it
+  `Major`, or the PASS receipt will sit on top of a known behaviour change and the fix threshold of
+  the team ("only Blocker/Major") will silently drop it — apache/doris#67900, 2026-09-13.
 - **Dispatching a subagent on a premise you never checked.** The premise check of step 4.1 costs
   one command; skipping it costs a whole agent, and the agent comes back having proved you wrong
   rather than having reviewed anything.

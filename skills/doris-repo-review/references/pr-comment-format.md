@@ -1,7 +1,8 @@
 # PASS comment format (`doris-repo-review/v1`)
 
-When a review passes, the skill posts **one comment** on the PR from the locally authenticated
-`gh` account. The comment is written by `scripts/post-pass-comment.sh`, never typed by hand: the
+When a review passes — a converged `APPROVE` with no Blocker/Major finding and no finding flagged
+as a regression against the base — the skill posts **one comment** on the PR from the locally
+authenticated `gh` account. The comment is written by `scripts/post-pass-comment.sh`, never typed by hand: the
 agent supplies optional notes, while verified documents supply the structured result. Anything that reads the
 comment back — a script, a dashboard, another agent — depends on that layout being fixed.
 

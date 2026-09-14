@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Validate both doris-repo-review documents and emit their agreed result."""
+"""Validate both doris-repo-review documents and emit their agreed result.
+
+Besides head, anchors, verdict, rounds and convergence, every finding must state whether it
+is a regression against the base; a regression rated below Major is rejected."""
 
 from __future__ import annotations
 
@@ -17,6 +20,17 @@ SEVERITY_RE = re.compile(
     r"^-\s+\*\*(?:Severity|等级)\*\*\s*[:：]\s*(Blocker|Major|Minor|Nit)\s*$",
     re.IGNORECASE,
 )
+# `- **Regression**: yes` / `- **回归**：是`, optionally followed by one parenthetical note or
+# the template's HTML comment.
+REGRESSION_RE = re.compile(
+    r"^-\s+\*\*(?:Regression|回归)\*\*\s*[:：]\s*(yes|no|是|否)\s*"
+    r"(?:[(（][^()（）]*[)）]|<!--.*?-->)?\s*$",
+    re.IGNORECASE,
+)
+REGRESSION_YES = ("yes", "是")
+# A regression - behaviour that differs from the base without the PR declaring it intended -
+# is at least Major, whatever the width of its trigger or the size of its fix.
+REGRESSION_SEVERITY_FLOOR = ("Blocker", "Major")
 HEAD_RE = re.compile(r"^\|\s*PR head\s*\|\s*`([0-9a-fA-F]{40})`")
 VERDICT_RE = re.compile(r"^\|\s*(?:Verdict|结论)\s*\|\s*\*\*(APPROVE|REQUEST_CHANGES)\*\*\s*\|")
 ROUNDS_RE = re.compile(r"^\|\s*(?:Rounds|轮次)\s*\|(.*?)\|\s*$")
@@ -63,6 +77,7 @@ class Document:
     converged: bool | None = None
     finding_ids: list[str] = field(default_factory=list)
     severities: dict[str, str] = field(default_factory=dict)
+    regressions: dict[str, bool] = field(default_factory=dict)
     anchors: list[Anchor] = field(default_factory=list)
     finding_anchors: dict[str, list[Anchor]] = field(default_factory=lambda: defaultdict(list))
 
@@ -149,6 +164,14 @@ def parse_document(path: Path, errors: list[str]) -> Document:
             else:
                 document.severities[current_finding] = match.group(1).title()
 
+        if match := REGRESSION_RE.match(line):
+            if current_finding is None:
+                errors.append(f"{path}:{lineno}: regression flag is not under a finding")
+            elif current_finding in document.regressions:
+                errors.append(f"{path}:{lineno}: duplicate regression flag for {current_finding}")
+            else:
+                document.regressions[current_finding] = match.group(1).lower() in REGRESSION_YES
+
         for match in ANCHOR_RE.finditer(line):
             anchor = Anchor(
                 path=match.group(1),
@@ -174,6 +197,16 @@ def parse_document(path: Path, errors: list[str]) -> Document:
     for finding in document.finding_ids:
         if finding not in document.severities:
             errors.append(f"{path}: finding {finding} has no severity")
+        if finding not in document.regressions:
+            errors.append(f"{path}: finding {finding} has no Regression/回归 line (yes/no against the base)")
+        elif (
+            document.regressions[finding]
+            and document.severities.get(finding) not in (None, *REGRESSION_SEVERITY_FLOOR)
+        ):
+            errors.append(
+                f"{path}: finding {finding} is marked as a regression but rated "
+                f"{document.severities[finding]}; a regression against the base is at least Major"
+            )
         if not document.finding_anchors.get(finding):
             errors.append(f"{path}: finding {finding} has no `path:line` anchor")
 
@@ -189,6 +222,10 @@ def severity_counts(document: Document) -> dict[str, int]:
         name.casefold(): sum(1 for value in document.severities.values() if value == name)
         for name in SEVERITIES
     }
+
+
+def regression_count(document: Document) -> int:
+    return sum(1 for value in document.regressions.values() if value)
 
 
 def finding_anchor_keys(document: Document, finding: str) -> list[tuple[str, int, int]]:
@@ -286,6 +323,8 @@ def main() -> int:
             errors.append("EN and ZH finding IDs or order differ")
         if left.severities != right.severities:
             errors.append("EN and ZH finding severities differ")
+        if left.regressions != right.regressions:
+            errors.append("EN and ZH regression flags differ")
         for finding in sorted(set(left.finding_ids) & set(right.finding_ids)):
             if finding_anchor_keys(left, finding) != finding_anchor_keys(right, finding):
                 errors.append(f"EN and ZH anchors differ for {finding}")
@@ -314,6 +353,7 @@ def main() -> int:
         "commit": head_sha,
         "verdict": documents[0].verdict,
         "findings": severity_counts(documents[0]),
+        "regressions": regression_count(documents[0]),
         "rounds": documents[0].rounds,
         "converged": documents[0].converged,
     }

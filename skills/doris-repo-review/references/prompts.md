@@ -65,6 +65,12 @@ Ledger rules:
   globally unique: prefix them with your agent id, e.g. `{AGENT_ID}-01`.
 - If a candidate overlaps one that already exists in the ledger, record it in your own file
   with a duplicate note naming the existing candidate ID instead of restating it.
+- Every candidate carries `Regression: yes | no` — does HEAD behave differently from the base
+  (`git show {BASE_SHA}:<path>`) in a way the PR body does not declare as intended? Cite the base
+  lines. Propose the severity from the consequence when it triggers, never from how narrow the
+  trigger is: a regression in correctness, concurrency, lifecycle, compatibility, config, or data
+  is at least Major, and for a PR presented as behaviour-preserving every undeclared differing
+  cell of your differential table is such a regression.
 
 Line-number rule (this run has no GitHub inline comments, so anchors are the only pointer):
 - Every candidate MUST carry `Path:` plus `Line:` using NEW-SIDE (post-change) line numbers,
@@ -216,3 +222,51 @@ find the two or three most load-bearing "not a bug" conclusions in the ledger an
 from primary sources. Then ask which *kinds* of check were never run at all - persistence and
 replay, upgrade *and downgrade*, CI gates, licence obligations, the thrift surface - and run the
 ones that apply.
+
+---
+
+## E. Severity-challenge subagent (one per intended downgrade, SKILL.md step 6)
+
+Append to the shared preamble. Dispatch it **before** finalizing a severity that is lower than the
+subagent proposed, or before dismissing a correctness / concurrency / lifecycle candidate. It is
+deliberately one-sided: its job is to make the strongest case for the higher severity so the main
+agent's rationale has been argued against by someone before it is written into the documents.
+
+```
+You are a SEVERITY-CHALLENGE subagent. You are not reviewing a slice and you are not looking for
+new findings. One candidate is about to be rated lower than proposed, or dismissed, and your only
+job is to argue the higher severity from primary sources - then say honestly whether the argument
+holds.
+
+Candidate ID          : {CANDIDATE_ID}
+Claim                 : {CLAIM}
+Anchor(s)             : {ANCHORS}
+Proposed by subagent  : {PROPOSED_SEVERITY}
+Main agent intends    : {INTENDED_SEVERITY_OR_DISMISSAL}
+Main agent's rationale: {RATIONALE}
+Regression flag       : {REGRESSION_FLAG} (evidence: {REGRESSION_EVIDENCE})
+
+Do this, in order:
+1. Re-derive the consequence from the code, not from the ledger: when the trigger happens, what is
+   wrong, leaked, lost, or silently skipped? Who notices, and when? What is the blast radius (one
+   session, one query, the FE, persisted state)? Cite `path:line`.
+2. Check the regression flag yourself with `git show {BASE_SHA}:<path>`: did the base behave
+   differently? If HEAD differs and the PR body does not declare it, the flag is `yes` and the floor
+   is Major for a correctness / concurrency / lifecycle / compatibility / config / data category -
+   say so even if the main agent's rationale never mentions it.
+3. Attack the rationale: is it about probability ("narrow", "cloud only", "needs two failures") or
+   about cost ("one-line fix") rather than about consequence? Those are not severity arguments.
+   Is "no wrong result" true for every consumer of the leaked or skipped state?
+4. Name the strongest counter-argument to your own case and say whether it survives.
+
+Write to {CTX}/ledger/sub-{ROUND}-challenge-{CANDIDATE_ID}.md and return exactly:
+- the severity you would assign and the regression flag you verified,
+- the one-paragraph consequence analysis with citations,
+- UPHOLD_DOWNGRADE when the main agent's rationale survives your best case, otherwise
+  RAISE_SEVERITY with the floor that applies.
+```
+
+The main agent records the outcome in `main-merged.md` under the candidate (`Severity challenge:
+UPHOLD_DOWNGRADE | RAISE_SEVERITY, <one line>`), and the finding's **Severity rationale** paragraph
+must survive that challenge, not merely precede it.
+

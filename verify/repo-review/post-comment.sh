@@ -44,8 +44,10 @@ EOF
 
 write_docs() {
     local head="$1" verdict="$2" severity="$3" rounds="$4" convergence="$5"
-    local zh_convergence=已收敛
+    local regression="${6:-no}"
+    local zh_convergence=已收敛 zh_regression=否
     [ "$convergence" = converged ] || zh_convergence=未收敛
+    [ "$regression" = no ] || zh_regression=是
     cat > "$REPO/review-docs/pr-123-review.en.md" <<EOF
 # Code Review — PR #123: fixture
 | | |
@@ -55,6 +57,7 @@ write_docs() {
 | Rounds | $rounds of max 3, $convergence |
 ### F-01 · fixture
 - **Severity**: $severity
+- **Regression**: $regression
 - **Where**: \`src/Foo.java:1\`
 EOF
     cat > "$REPO/review-docs/pr-123-review.zh.md" <<EOF
@@ -66,6 +69,7 @@ EOF
 | 轮次 | 共 $rounds 轮（上限 3），$zh_convergence |
 ### F-01 · fixture
 - **等级**：$severity
+- **回归**：$zh_regression
 - **位置**：\`src/Foo.java:1\`
 EOF
 }
@@ -132,6 +136,14 @@ expect_failure "unterminated malformed note is rejected" "every note line" \
 
 write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged
 expect_failure "REQUEST_CHANGES never posts" "verdict is REQUEST_CHANGES" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+write_docs "$HEAD_SHA" APPROVE Minor 2 converged yes
+expect_failure "a regression rated Minor never posts" "failed verification" \
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
+
+write_docs "$HEAD_SHA" REQUEST_CHANGES Major 2 converged yes
+expect_failure "a regression finding never posts" "verdict is REQUEST_CHANGES" \
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run
 
 write_docs "$HEAD_SHA" APPROVE Minor 3 'did not converge'
