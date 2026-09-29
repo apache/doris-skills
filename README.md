@@ -25,7 +25,7 @@ skill from its `description`, so in practice you describe the problem and the ri
 
 | Skill | What it does | Use it when |
 |---|---|---|
-| [`doris-best-practices`](skills/doris-best-practices/) | Table design, sizing, and runtime query investigation (37 rules, 7 use-case templates, 4 sizing guides) | Writing or reviewing `CREATE TABLE`, choosing a data model, partition/bucket strategy, or cluster configuration |
+| [`doris-best-practices`](skills/doris-best-practices/) | Table design, sizing, and runtime query investigation (38 rules, 7 use-case templates, 4 sizing guides) | Writing or reviewing `CREATE TABLE`, choosing a data model, partition/bucket strategy, or cluster configuration |
 | [`doris-architecture-advisor`](skills/doris-architecture-advisor/) | Workload-aware architecture design (8 decision rules, 10 worked industry examples) | Turning a business workload into a Doris design — model choice, ingestion strategy, sizing-first planning |
 | [`doris-debug`](skills/doris-debug/) | Production diagnostic suite: symptom router + 10 domain skills (query, import, compaction, node, MV, tablet, deployment, data-lake, resource-isolation, cloud), 16 case files, 45 case patterns | Something is broken — slow queries, failing imports, `-235` compaction errors, OOM or crashing nodes, an MV that will not rewrite, degraded tablets |
 | [`doris-profile-reader`](skills/doris-profile-reader/) | Query runtime profile interpretation and bottleneck triage (counter semantics, join-order / runtime-filter diagnosis, 9 reference guides) | You have a profile, query id, or profile URL and need to know what actually made the query slow |
