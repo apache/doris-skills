@@ -131,6 +131,24 @@ grep -Fq "findings: {blocker: 0, major: 0, minor: 1, nit: 0}" "$CTX/pr-comment.m
 [ -z "${RECEIPT_OUTPUT:-}" ] || cp "$CTX/pr-comment.md" "$RECEIPT_OUTPUT"
 pass "verified dry run renders a pipeline-compatible receipt"
 
+for model in gpt-6-sol claude-opus-5-5 'claude-opus-5-5[1m]'; do
+    "$S/record-review-runtime.sh" --ctx "$CTX" --model "$model" --effort xhigh >/dev/null
+    "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run > "$TMP_ROOT/dry-run"
+    grep -Fxq "model: $model" "$CTX/pr-comment.md" || fail "new model receipt is wrong: $model"
+done
+pass "new models render their exact identity in PASS receipts"
+
+# A runtime recorded before the policy change must not bypass the current allowlist.
+: > "$MOCK_GH_LOG"
+for model in gpt-5.6-sol claude-opus-5 'claude-opus-5[1m]'; do
+    jq -n --arg model "$model" --arg commit "$HEAD_SHA" \
+        '{model: $model, effort: "xhigh", commit: $commit}' > "$CTX/review-runtime.json"
+    expect_failure "retired attestation cannot post: $model" "is not eligible" \
+        "$S/post-pass-comment.sh" --ctx "$CTX"
+done
+[ ! -s "$MOCK_GH_LOG" ] || fail "retired attestation attempted a GitHub write"
+"$S/record-review-runtime.sh" --ctx "$CTX" --model gpt-6-astra --effort xhigh >/dev/null
+
 : > "$MOCK_GH_LOG"
 MOCK_SAME_COMMENT=0 "$S/post-pass-comment.sh" --ctx "$CTX" > "$TMP_ROOT/create"
 grep -Fq -- "--method POST repos/apache/doris/issues/123/comments --input -" "$MOCK_GH_LOG" \

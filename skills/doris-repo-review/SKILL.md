@@ -618,7 +618,7 @@ Tell the user:
 
 | CI (code-review-runner.yml) | Local |
 |---|---|
-| `codex exec --goal` (gpt-5.6-sol, xhigh) | An explicitly selected qualified lead reviewer |
+| `codex exec --goal` (gpt-6-sol, xhigh) | An explicitly selected qualified lead reviewer |
 | checkout the PR head sha | `align-to-pr.sh` detaches **the current directory** to the same sha |
 | `git diff BASE...HEAD` as the authoritative diff | Same, produced by `prepare-review-context.sh` |
 | "PR changed while preparing" guard | The fetched sha must equal the API head sha, otherwise a re-run is required |

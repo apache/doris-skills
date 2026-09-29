@@ -30,7 +30,7 @@ commit: 7f3a91c4e0b25d8a6c1f04b93e27ad5810cf6b42
 base: 0b1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293
 reviewed_at: 2026-08-17T21:22+08:00
 reviewer: morningman
-model: claude-opus-5[1m]
+model: claude-opus-5-5[1m]
 effort: max
 findings: {blocker: 0, major: 0, minor: 2, nit: 1}
 rounds: 2

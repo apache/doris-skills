@@ -4,12 +4,18 @@ Establish the reviewer runtime before reading source. A pipeline-equivalent revi
 
 | Host | Models | Effort |
 |---|---|---|
-| Codex | `gpt-6-astra`, `gpt-5.6-sol` | `xhigh`, `max`, or `ultra` |
-| Claude Code | `claude-fable-5-1`, `claude-fable-5-1[1m]`, `claude-opus-5`, `claude-opus-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh` or `max` |
+| Codex | `gpt-6-astra`, `gpt-6-sol` | `xhigh`, `max`, or `ultra` |
+| Claude Code | `claude-fable-5-1`, `claude-fable-5-1[1m]`, `claude-opus-5-5`, `claude-opus-5-5[1m]`, `claude-fable-5`, or `claude-fable-5[1m]` | `xhigh` or `max` |
 
 Prefer `gpt-6-astra` on Codex and Fable 5.1 on Claude Code, with `xhigh` as the default
 qualified effort. Use another allowlisted model only when explicitly requested by the user or
 when the preferred model is unavailable.
+
+`gpt-5.6-sol`, `claude-opus-5`, and `claude-opus-5[1m]` are no longer eligible.
+The same policy applies to the lead and every substantive coverage reviewer.
+
+`ultra` is accepted only when the Codex host explicitly exposes and actually uses that setting.
+The GPT-6 Sol API supports effort only through `max`; do not relabel an API `max` run as `ultra`.
 
 Validate the exact values with:
 
@@ -32,7 +38,7 @@ When the current task cannot be retained under the rules above, spawn one lead r
 - `model: "gpt-6-astra"`
 - `reasoning_effort: "xhigh"`
 
-If Astra is unavailable, fall back to `gpt-5.6-sol` with `xhigh`. If the user explicitly requests
+If Astra is unavailable, fall back to `gpt-6-sol` with `xhigh`. If the user explicitly requests
 another qualified runtime, use its exact model and supported effort instead. Preserve a current
 preferred runtime's qualified effort rather than resetting it to `xhigh`.
 
