@@ -28,32 +28,39 @@ write_meta() {
 
 CTX="$TMP_ROOT/ctx"
 write_meta "$CTX" "$HEAD_SHA"
-"$RECORDER" --ctx "$CTX" --model gpt-5.6-sol --effort xhigh >/dev/null
+"$RECORDER" --ctx "$CTX" --model gpt-6-sol --effort xhigh >/dev/null
 jq -e --arg head "$HEAD_SHA" \
-    '.model == "gpt-5.6-sol" and .effort == "xhigh" and .commit == $head' \
+    '.model == "gpt-6-sol" and .effort == "xhigh" and .commit == $head' \
     "$CTX/review-runtime.json" >/dev/null || fail "runtime JSON fields are wrong"
 pass "qualified runtime records model, effort, and commit"
 
-expect_failure "low effort is rejected" "not eligible for model 'gpt-5.6-sol'" \
-    "$RECORDER" --ctx "$CTX" --model gpt-5.6-sol --effort high
+expect_failure "low effort is rejected" "not eligible for model 'gpt-6-sol'" \
+    "$RECORDER" --ctx "$CTX" --model gpt-6-sol --effort high
 [ ! -e "$CTX/review-runtime.json" ] || fail "failed replacement left an old runtime record"
 pass "failed replacement removes the old attestation"
 
-expect_failure "Claude ultra effort is rejected" "not eligible for model 'claude-opus-5'" \
-    "$RECORDER" --ctx "$CTX" --model claude-opus-5 --effort ultra
+expect_failure "Claude ultra effort is rejected" "not eligible for model 'claude-opus-5-5'" \
+    "$RECORDER" --ctx "$CTX" --model claude-opus-5-5 --effort ultra
 
-"$RECORDER" --ctx "$CTX" --model claude-opus-5 --effort max >/dev/null
+"$RECORDER" --ctx "$CTX" --model claude-opus-5-5 --effort max >/dev/null
 jq -e --arg head "$HEAD_SHA" \
-    '.model == "claude-opus-5" and .effort == "max" and .commit == $head' \
+    '.model == "claude-opus-5-5" and .effort == "max" and .commit == $head' \
     "$CTX/review-runtime.json" >/dev/null || fail "supported Claude runtime was not recorded"
 pass "supported Claude effort is recorded"
 
 expect_failure "unlisted model is rejected" "is not eligible" \
     "$RECORDER" --ctx "$CTX" --model gpt-5.6-terra --effort xhigh
 
+for model in gpt-5.6-sol claude-opus-5 'claude-opus-5[1m]'; do
+    "$RECORDER" --ctx "$CTX" --model gpt-6-sol --effort xhigh >/dev/null
+    expect_failure "retired model is rejected: $model" "is not eligible" \
+        "$RECORDER" --ctx "$CTX" --model "$model" --effort xhigh
+    [ ! -e "$CTX/review-runtime.json" ] || fail "retired replacement left an old runtime record"
+done
+
 BAD_CTX="$TMP_ROOT/bad-ctx"
 write_meta "$BAD_CTX" deadbeef
 expect_failure "short commit is rejected" "not a full SHA" \
-    "$RECORDER" --ctx "$BAD_CTX" --model gpt-5.6-sol --effort xhigh
+    "$RECORDER" --ctx "$BAD_CTX" --model gpt-6-sol --effort xhigh
 
 echo "$PASS_COUNT runtime-attestation tests passed"

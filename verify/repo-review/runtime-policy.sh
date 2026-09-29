@@ -18,7 +18,7 @@ fail() {
 # shellcheck source=/dev/null
 . "$POLICY"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-5.6-sol gpt-6-astra; do
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6-sol gpt-6-astra; do
     is_eligible_review_model "$model" || fail "eligible model rejected: $model"
 done
 pass "exact model allowlist is accepted"
@@ -30,7 +30,22 @@ for model in claude-opus-4-8 'claude-opus-4-8[1m]' claude-opus-5.1 claude-fable-
 done
 pass "unlisted models are rejected"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
+for model in gpt-5.6-sol claude-opus-5 'claude-opus-5[1m]'; do
+    if is_eligible_review_model "$model"; then
+        fail "retired model accepted: $model"
+    fi
+    for effort in xhigh max ultra; do
+        if is_eligible_review_effort "$model" "$effort"; then
+            fail "retired model effort accepted: $model ($effort)"
+        fi
+        if "$POLICY" check "$model" "$effort" >/dev/null 2>&1; then
+            fail "policy CLI accepted retired model: $model ($effort)"
+        fi
+    done
+done
+pass "retired models are rejected by the policy and CLI"
+
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
     for effort in xhigh max; do
         is_eligible_review_effort "$model" "$effort" \
             || fail "eligible Claude runtime rejected: $model ($effort)"
@@ -38,14 +53,14 @@ for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m
 done
 pass "Claude models accept their supported qualified efforts"
 
-for model in claude-opus-5 'claude-opus-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]'; do
     if is_eligible_review_effort "$model" ultra; then
         fail "unsupported Claude ultra effort accepted: $model"
     fi
 done
 pass "Claude models reject unsupported ultra effort"
 
-for model in gpt-5.6-sol gpt-6-astra; do
+for model in gpt-6-sol gpt-6-astra; do
     for effort in xhigh max ultra; do
         is_eligible_review_effort "$model" "$effort" \
             || fail "eligible Codex runtime rejected: $model ($effort)"
@@ -53,8 +68,8 @@ for model in gpt-5.6-sol gpt-6-astra; do
 done
 pass "Codex accepts xhigh, max, and ultra"
 
-for model in claude-opus-5 claude-fable-5-1 'claude-fable-5-1[1m]' gpt-5.6-sol gpt-6-astra; do
-    for effort in minimal low medium high unknown; do
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6-sol gpt-6-astra; do
+    for effort in none minimal low medium high unknown ''; do
         if is_eligible_review_effort "$model" "$effort"; then
             fail "ineligible runtime accepted: $model ($effort)"
         fi
@@ -62,11 +77,11 @@ for model in claude-opus-5 claude-fable-5-1 'claude-fable-5-1[1m]' gpt-5.6-sol g
 done
 pass "lower and unknown efforts are rejected for every host"
 
-"$POLICY" check gpt-5.6-sol xhigh >/dev/null
-if "$POLICY" check gpt-5.6-sol high >/dev/null 2>&1; then
+"$POLICY" check gpt-6-sol xhigh >/dev/null
+if "$POLICY" check gpt-6-sol high >/dev/null 2>&1; then
     fail "policy CLI accepted high effort"
 fi
-if "$POLICY" check claude-opus-5 ultra >/dev/null 2>&1; then
+if "$POLICY" check claude-opus-5-5 ultra >/dev/null 2>&1; then
     fail "policy CLI accepted unsupported Claude ultra effort"
 fi
 pass "policy CLI enforces model-specific effort allowlists"
