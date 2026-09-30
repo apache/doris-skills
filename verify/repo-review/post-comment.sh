@@ -131,7 +131,7 @@ grep -Fq "findings: {blocker: 0, major: 0, minor: 1, nit: 0}" "$CTX/pr-comment.m
 [ -z "${RECEIPT_OUTPUT:-}" ] || cp "$CTX/pr-comment.md" "$RECEIPT_OUTPUT"
 pass "verified dry run renders a pipeline-compatible receipt"
 
-for model in gpt-6-sol claude-opus-5-5 'claude-opus-5-5[1m]'; do
+for model in gpt-6.1-sol gpt-6-sol claude-opus-5-5 'claude-opus-5-5[1m]'; do
     "$S/record-review-runtime.sh" --ctx "$CTX" --model "$model" --effort xhigh >/dev/null
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run > "$TMP_ROOT/dry-run"
     grep -Fxq "model: $model" "$CTX/pr-comment.md" || fail "new model receipt is wrong: $model"

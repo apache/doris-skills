@@ -18,12 +18,12 @@ fail() {
 # shellcheck source=/dev/null
 . "$POLICY"
 
-for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6-sol gpt-6-astra; do
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6.1-sol gpt-6-sol gpt-6-astra; do
     is_eligible_review_model "$model" || fail "eligible model rejected: $model"
 done
 pass "exact model allowlist is accepted"
 
-for model in claude-opus-4-8 'claude-opus-4-8[1m]' claude-opus-5.1 claude-fable-4 gpt-5.6 gpt-5.6-terra gpt-5.6-luna gpt-5.7-sol gpt-6 unknown; do
+for model in claude-opus-4-8 'claude-opus-4-8[1m]' claude-opus-5.1 claude-fable-4 gpt-5.6 gpt-5.6-terra gpt-5.6-luna gpt-5.7-sol gpt-6.1 gpt-6.1-sol-preview gpt-6.1-sol[1m] gpt-6 unknown; do
     if is_eligible_review_model "$model"; then
         fail "unlisted model accepted: $model"
     fi
@@ -60,7 +60,7 @@ for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-
 done
 pass "Claude models reject unsupported ultra effort"
 
-for model in gpt-6-sol gpt-6-astra; do
+for model in gpt-6.1-sol gpt-6-sol gpt-6-astra; do
     for effort in xhigh max ultra; do
         is_eligible_review_effort "$model" "$effort" \
             || fail "eligible Codex runtime rejected: $model ($effort)"
@@ -68,7 +68,7 @@ for model in gpt-6-sol gpt-6-astra; do
 done
 pass "Codex accepts xhigh, max, and ultra"
 
-for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6-sol gpt-6-astra; do
+for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-5[1m]' claude-fable-5-1 'claude-fable-5-1[1m]' gpt-6.1-sol gpt-6-sol gpt-6-astra; do
     for effort in none minimal low medium high unknown ''; do
         if is_eligible_review_effort "$model" "$effort"; then
             fail "ineligible runtime accepted: $model ($effort)"
@@ -77,8 +77,8 @@ for model in claude-opus-5-5 'claude-opus-5-5[1m]' claude-fable-5 'claude-fable-
 done
 pass "lower and unknown efforts are rejected for every host"
 
-"$POLICY" check gpt-6-sol xhigh >/dev/null
-if "$POLICY" check gpt-6-sol high >/dev/null 2>&1; then
+"$POLICY" check gpt-6.1-sol xhigh >/dev/null
+if "$POLICY" check gpt-6.1-sol high >/dev/null 2>&1; then
     fail "policy CLI accepted high effort"
 fi
 if "$POLICY" check claude-opus-5-5 ultra >/dev/null 2>&1; then

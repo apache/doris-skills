@@ -3,7 +3,7 @@
 
 is_eligible_review_model() {
     case "$1" in
-        claude-opus-5-5|claude-opus-5-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\]|gpt-6-sol|gpt-6-astra) return 0 ;;
+        claude-opus-5-5|claude-opus-5-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\]|gpt-6.1-sol|gpt-6-sol|gpt-6-astra) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -18,7 +18,7 @@ is_eligible_review_effort() {
                 *) return 1 ;;
             esac
             ;;
-        gpt-6-sol|gpt-6-astra)
+        gpt-6.1-sol|gpt-6-sol|gpt-6-astra)
             case "$effort" in
                 xhigh|max|ultra) return 0 ;;
                 *) return 1 ;;
