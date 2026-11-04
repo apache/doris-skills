@@ -2,8 +2,9 @@
 
 The cluster-side skills are written directly against **`doriscli`** (the Apache Doris CLI,
 shipped in the companion `doris-cli` repository). The runtime-diagnosis logic in
-`doris-best-practices` hard-codes the command names and JSON field names below. Skills that
-never talk to a cluster (for example `doris-repo-review`) are outside this contract.
+`doris-best-practices` hard-codes the command names and JSON field names below. Skills that do
+not use doriscli (the contributor-side `develop-with-evidence`, `doris-pr-description`, and
+`doris-repo-review`) are outside this contract.
 
 **If doriscli renames a command or output field, update both repositories together.**
 There is no render/adapter layer to absorb the change, and a renamed field silently
