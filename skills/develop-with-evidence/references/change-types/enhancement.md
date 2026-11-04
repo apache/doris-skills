@@ -1,0 +1,3 @@
+# Enhancing an existing feature: check the difference and the upgrade impact
+
+Run the same input on the baseline and on the candidate, and record the exact difference: the output, the error text, the limits, the defaults. When a default changes, confirm the value that an existing deployment actually ends up with after an upgrade, and whether settings persisted earlier (global variables, config files, table properties, and so on) override the new default. Write tests for the old behavior wherever compatibility is promised. For a new config, verify the default, invalid values, and whether it can be changed at runtime.

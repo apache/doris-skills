@@ -1,0 +1,11 @@
+# 2. Understand the mechanism, then implement what is needed
+
+1. For a bug, trace the causal chain from the input to the wrong result; for a feature, trace from the entry point to the observable behavior; for a refactor, trace the contracts that must hold.
+2. Check the direct callers, the shared implementations, and the related alternative paths. Tell defects of the same kind apart from behavior that looks similar but means something else, and don't change all the neighboring code for the sake of "completeness".
+3. Make the implementation answer the root cause or the target contract. When it needs to be wired into registration, configs, error handling, resource lifecycles, documentation, or examples, do that too, but only where it actually applies. When the user documentation lives in another repository (such as `apache/doris-website` for Doris), note what needs updating, and leave the documentation plan to the PR description.
+4. If an observation overturns the original hypothesis, update the approach and the verification goals before continuing. Never make the current case pass by loosening conditions, swallowing exceptions, deleting assertions, or changing unrelated semantics.
+5. Confirm toolchains, configs, and interfaces against the current repository and the actual environment. Old notes only tell you where to look; they don't replace current facts.
+6. For non-obvious edits, such as a removed check, a changed constant or default, or deleted code, note the reason when you make them and write it into the handoff file. "Why did this change?" is the question reviewers ask most, and usually only the author knows the answer.
+7. When the change grows past its first idea, such as a switch that needs other settings locked or a fix that needs a refactor first, note each part it adds and the problem that part handles, and write them into the handoff file; the PR step writes Problem Summary and the Change map from them.
+
+The wide searches in items 1 and 2 (callers, shared implementations, parallel paths, long discussion threads) can go to a subagent; the main session then reads only the code it points to that this change will modify or must judge. See `references/subagents.md`.

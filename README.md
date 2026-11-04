@@ -32,15 +32,31 @@ skill from its `description`, so in practice you describe the problem and the ri
 
 ### Working on Doris itself
 
+The three follow a change from its first line to its merge: `develop-with-evidence` while it is
+written, `doris-pr-description` when it is opened as a PR, and `doris-repo-review` when it is
+reviewed. The first two connect through a handoff file that development leaves under
+`.git/pr-handoff/`, so the PR description is written from the evidence gathered while the code
+was written instead of being reconstructed from the diff. Each one also works on its own.
+
 | Skill | What it does | Use it when |
 |---|---|---|
+| [`develop-with-evidence`](skills/develop-with-evidence/) | Six-stage development workflow (scope → implement → verify → self-review → evidence → deliver): confirms that a reported bug is real before fixing it, picks verification in proportion to the change type (11 change types, from bugfix to data migration), checks that the tests can tell right from wrong (fail on the baseline, pass on the candidate, a targeted revert when a false pass is suspected), keeps every evidence entry bound to the final code, and leaves an English handoff file: a PR description draft, the decisions and their alternatives, the evidence, and a `Ready` / `Partially verified` / `Not ready` pre-submission status. It never publishes the PR | Implementing a feature, fixing a bug, refactoring, optimizing, or changing tests, CI, configs, or dependencies in an `apache/doris` checkout (the workflow itself is repository-agnostic) |
+| [`doris-pr-description`](skills/doris-pr-description/) | PR title and description by the Doris PR standard: Create, Update, Rewrite, and Check modes; 10 PR types, each with its required fields and a worked example; a Background-first template, a Change map for large diffs, and an issue draft for a Feature that has none; a bundled structural checker (`check_pr.py`) and diff profiler (`diff_profile.py`). Takes the facts from the `develop-with-evidence` handoff file when there is one, and pushes, creates, or edits on GitHub only after the user confirms the drafts | Opening or updating an `apache/doris` PR, or rewriting or checking the title and description of an existing one |
 | [`doris-repo-review`](skills/doris-repo-review/) | Contributor-side PR review of a local `apache/doris` clone, running the same flow as the CI Code Review Runner: worktree alignment, risk scan with premise checks, subagent fan-out, shared ledger, mechanical coverage report, anchored EN + ZH review documents kept per reviewed head with a per-finding category and a regression flag judged against the merge base that floors an undeclared functional / data / resource / performance change at Major, dismissals carried forward from earlier reviews of the same PR, and — on a passing review — one machine-readable PASS comment on the PR that discloses any remaining behaviour change | Reviewing an `apache/doris` pull request locally, the way the pipeline would |
 
-These skills read a Doris **source** checkout and never touch a cluster; the cluster-side skills
-never touch repository source. Nothing here builds Doris or runs tests. The one GitHub write in
-the whole set is `doris-repo-review`'s PASS comment — posted only when the review finds no
-`Blocker` or `Major`, converges under a qualified reviewer, and still matches the live PR head.
-Explicitly invoking the skill authorizes that one automatic comment.
+These skills work in a Doris **source** checkout, not against a running cluster (only
+`develop-with-evidence` may start a local one, to reproduce a bug or run tests); the cluster-side
+skills never touch repository source. `develop-with-evidence` is the one skill that edits code,
+builds, and runs tests, and it does so only to implement the change and gather evidence.
+`doris-repo-review` is read-only: no edits to source, no build, no tests. GitHub writes come from
+two places:
+
+- `doris-pr-description` pushes the branch and creates or edits the PR (and the issue a Feature
+  needs) only after the user confirms the drafts, unless the request itself said to publish
+  without review. Its Rewrite and Check modes never write to GitHub.
+- `doris-repo-review` posts its PASS comment only when the review finds no `Blocker` or `Major`,
+  converges under a qualified reviewer, and still matches the live PR head. Explicitly invoking
+  the skill authorizes that one automatic comment.
 
 ## Install
 
@@ -67,6 +83,8 @@ Then describe your problem — the agent loads the matching skill on its own:
 | "Review this DDL before I ship it" | `doris-best-practices` |
 | "Imports keep failing with -235" | `doris-debug` → its compaction domain skill |
 | "Why is this query slow? here's the profile" | `doris-profile-reader` |
+| "Fix this bug and open a PR for it" | `develop-with-evidence` → `doris-pr-description` |
+| "Does the description of https://github.com/apache/doris/pull/66807 meet the PR standard?" | `doris-pr-description` |
 | "/doris-repo-review https://github.com/apache/doris/pull/66807" | `doris-repo-review` |
 
 ### Optional: doriscli
@@ -94,8 +112,10 @@ plus the FE HTTP API (see
 commands and JSON fields the skills depend on are listed in [CLI-CONTRACT.md](CLI-CONTRACT.md) —
 keep that file and doriscli in sync.
 
-`doris-repo-review` does not use doriscli; it needs `git`, an authenticated `gh` CLI, `jq`, and
-`python3`.
+The contributor-side skills do not use doriscli. `doris-repo-review` needs `git`, an
+authenticated `gh` CLI, `jq`, and `python3`; `doris-pr-description` needs `git` and `python3`,
+plus an authenticated `gh` CLI to read or publish PRs and issues; `develop-with-evidence` needs
+`git` and whatever the project itself uses to build and test.
 
 ## Verification
 
@@ -114,8 +134,15 @@ repository-review contract suite:
 - **Repo review**: qualified-runtime policy, document-result validation, and mocked GitHub comment
   create/update behavior.
 
-A skill that makes no DDL or doriscli claim (`doris-debug`, `doris-profile-reader`,
-`doris-repo-review`) has no L1/L2 coverage; its local receipt contract is covered separately.
+A skill that makes no DDL or doriscli claim (`doris-debug`, `doris-profile-reader`, and the
+contributor-side skills) has no L1/L2 coverage. `doris-repo-review`'s local receipt contract is
+covered by the repo-review suite, and `doris-pr-description` ships a self-test that runs its
+checker over every worked example and confirms that each type file documents the fields the
+checker requires:
+
+```bash
+python3 skills/doris-pr-description/scripts/check_pr.py --self-test
+```
 
 ## Contributing a skill
 
@@ -157,6 +184,8 @@ doris-skills/
 │   ├── doris-architecture-advisor/ # cluster-side: workload → architecture
 │   ├── doris-debug/                # cluster-side: symptom router + 10 nested domain skills
 │   ├── doris-profile-reader/       # cluster-side: query profile → bottleneck
+│   ├── develop-with-evidence/      # contributor-side: develops a change with evidence, leaves a PR handoff
+│   ├── doris-pr-description/       # contributor-side: writes and checks a PR's title and description
 │   └── doris-repo-review/          # contributor-side: reviews an apache/doris PR, not a cluster
 └── verify/                         # regression suite — L1 DDL, L2 CLI contract, L3 behavior
 ```

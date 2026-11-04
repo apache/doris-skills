@@ -1,0 +1,3 @@
+# Sources of the engineering principles
+
+Based on the [GroeneAI announcement](https://clickhouse.com/blog/meet-groeneai-our-autonomous-contributor-to-clickhouse) and its public examples: [test discrimination and a performance counterexample](https://github.com/ClickHouse/ClickHouse/pull/115173), [pre-submission acceptance](https://github.com/ClickHouse/ClickHouse/pull/124051), and [CI detection power](https://github.com/ClickHouse/ClickHouse/pull/114451). This workflow adapts them to different kinds of coding tasks: one main agent makes every judgment, and subagents only gather evidence. It needs no particular model, platform, or background service. There is no need to revisit the sources in normal use.
