@@ -19,7 +19,7 @@ What is inconvenient or limited today, who runs into it, and what the PR changes
 
 ## Details
 
-- **Before and after** (required): the exact behavior before and after: the output, the error text, the limits, the defaults. Show a short example when words alone are ambiguous.
+- **Before and after** (required): the exact behavior before and after: the output, the error text, the limits, the defaults. Show a short example when words alone are ambiguous, unless Problem Summary already shows it.
 - **Configs and defaults** (required): new or changed configs and session variables, with their defaults and whether they can change at runtime; or `None`.
 - **Impact on existing users** (required): what existing SQL, data, metadata, privileges, and clients will see, including after a running cluster is upgraded. When a default changes, give the value an upgraded cluster ends up with, and whether values persisted earlier (`SET GLOBAL`, `fe.conf`, table properties) override it.
 - **Results** (when the change also improves performance): as in Performance.

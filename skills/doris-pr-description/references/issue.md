@@ -26,11 +26,11 @@ Why this issue exists: the user scenario, the need, or the incident.
 
 ### Current behavior
 
-What happens today. For a bug, include the Doris version and the deployment mode.
+What happens today, shown with a simple, concrete example whenever it can be: the statement, and the result, error, or log line it gives, copied from a run. For a bug, include the Doris version and the deployment mode.
 
 ### Expected behavior
 
-What should happen instead.
+What should happen instead, on the same example.
 
 ### Proposed design
 

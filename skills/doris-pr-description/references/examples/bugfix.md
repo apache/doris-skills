@@ -19,6 +19,17 @@ Problem Summary:
 
 After an Iceberg table's partition spec replaces `identity(dt)` with `day(ts)`, Doris returns NULL for `dt` in rows from files written under the old spec, while Spark returns the right values. This PR reads each file's partition values with the spec that the file was written with.
 
+For example, when the rows of `2026-01-05` were written before the spec changed and those of `2026-01-06` after it:
+
+```sql
+SELECT dt, count(*) FROM iceberg_catalog.db.events GROUP BY dt ORDER BY dt;
+```
+
+| Before the fix | With the fix |
+|---|---|
+| `NULL, 3` | `2026-01-05, 3` |
+| `2026-01-06, 5` | `2026-01-06, 5` |
+
 ### Details
 
 - **Frequency:** Always, on Iceberg tables whose partition spec has replaced a field and that still hold files written under the old spec.
