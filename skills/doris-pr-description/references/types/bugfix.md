@@ -14,11 +14,11 @@ How the affected feature works when it works: the mechanism the bug sits in, and
 
 ## Problem Summary
 
-The symptom as a user or developer sees it (the wrong result, the error text, where it crashes), who runs into it, and the fix in one sentence.
+The symptom as a user or developer sees it (the wrong result, the error text, where it crashes), who runs into it, and the fix in one sentence. Then the shortest reproduction, as the example that `references/write.md` describes: the statement, and what it gives before and after the fix.
 
 ## Details
 
-- **Frequency** (required): `Always`, `Intermittent`, or `Not observed`, followed by the trigger: the conditions, or the shortest reproduction. For an intermittent bug, give the rate if it is known (`about 1 in 20 P0 runs`). For a bug found by reading code, say so: `Not observed; found by code review. Triggers when ...`. When the trigger depends on an external system, describe the behavior that triggers it (`REST catalogs that answer a table lookup for a view with HTTP 400`) and name the systems known to do that; not knowing which systems do is not a missing fact.
+- **Frequency** (required): `Always`, `Intermittent`, or `Not observed`, followed by the trigger: the conditions, or the shortest reproduction, which can refer to the example in Problem Summary instead of repeating it. For an intermittent bug, give the rate if it is known (`about 1 in 20 P0 runs`). For a bug found by reading code, say so: `Not observed; found by code review. Triggers when ...`. When the trigger depends on an external system, describe the behavior that triggers it (`REST catalogs that answer a table lookup for a view with HTTP 400`) and name the systems known to do that; not knowing which systems do is not a missing fact.
 - **Root cause** (required): which code is wrong, and why it produces the symptom. Name the function or class, in one to three sentences.
 - **Why existing tests missed it** (required): cover both layers, the unit tests and the end-to-end regression suites under `regression-test/suites/`. For each layer, name the closest tests, say what they check, and give the gap that let the bug through; if no test at a layer reaches the faulty code, say so. `references/facts/existing-tests.md` shows how to find the tests and check that CI runs them. Common gaps:
   - No case for the trigger condition.

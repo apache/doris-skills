@@ -523,7 +523,9 @@ def check_body(rep, body, title_type, commented=frozenset(), changed_lines=None)
         if summary_lines is None:
             rep.error("Problem Summary", "label missing")
         else:
-            summary = text_of([(t, f) for t, f in summary_lines if not f])
+            # An example's code block or table doesn't count toward the summary's length.
+            summary = text_of([(t, f) for t, f in summary_lines
+                               if not f and not t.lstrip().startswith("|")])
             if is_empty(summary):
                 rep.error("Problem Summary", "empty")
             elif word_count(summary) > 150:
