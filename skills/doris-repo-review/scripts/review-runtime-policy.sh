@@ -3,7 +3,7 @@
 
 is_eligible_review_model() {
     case "$1" in
-        claude-opus-5-5|claude-opus-5-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\]|gpt-6.1-sol|gpt-6-sol|gpt-6-astra) return 0 ;;
+        claude-opus-5-5|claude-opus-5-5\[1m\]|claude-fable-5|claude-fable-5\[1m\]|claude-fable-5-1|claude-fable-5-1\[1m\]|gpt-6.2-sol|gpt-6.2-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-astra|gemini-4-carbon|gemini-4-neon) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -18,9 +18,21 @@ is_eligible_review_effort() {
                 *) return 1 ;;
             esac
             ;;
-        gpt-6.1-sol|gpt-6-sol|gpt-6-astra)
+        gpt-6.2-sol|gpt-6.2-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-astra)
             case "$effort" in
                 xhigh|max|ultra) return 0 ;;
+                *) return 1 ;;
+            esac
+            ;;
+        gemini-4-carbon)
+            case "$effort" in
+                high) return 0 ;;
+                *) return 1 ;;
+            esac
+            ;;
+        gemini-4-neon)
+            case "$effort" in
+                xhigh) return 0 ;;
                 *) return 1 ;;
             esac
             ;;
@@ -37,7 +49,7 @@ check_review_runtime() {
     }
     is_eligible_review_effort "$model" "$effort" || {
         echo "ERROR: effort '$effort' is not eligible for model '$model'." >&2
-        echo "       Claude Code supports xhigh or max; Codex also supports ultra." >&2
+        echo "       Claude Code supports xhigh or max; Codex supports xhigh, max, or ultra; Antigravity supports high for gemini-4-carbon and xhigh for gemini-4-neon." >&2
         return 1
     }
 }
