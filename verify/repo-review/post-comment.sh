@@ -131,11 +131,16 @@ grep -Fq "findings: {blocker: 0, major: 0, minor: 1, nit: 0}" "$CTX/pr-comment.m
 [ -z "${RECEIPT_OUTPUT:-}" ] || cp "$CTX/pr-comment.md" "$RECEIPT_OUTPUT"
 pass "verified dry run renders a pipeline-compatible receipt"
 
-for model in gpt-6.1-sol gpt-6-sol claude-opus-5-5 'claude-opus-5-5[1m]'; do
+for model in gpt-6.2-astra gpt-6.2-sol gpt-6.1-sol gpt-6-sol claude-opus-5-5 'claude-opus-5-5[1m]' gemini-4-neon; do
     "$S/record-review-runtime.sh" --ctx "$CTX" --model "$model" --effort xhigh >/dev/null
     "$S/post-pass-comment.sh" --ctx "$CTX" --dry-run > "$TMP_ROOT/dry-run"
     grep -Fxq "model: $model" "$CTX/pr-comment.md" || fail "new model receipt is wrong: $model"
+    grep -Fxq "effort: xhigh" "$CTX/pr-comment.md" || fail "new model effort receipt is wrong: $model"
 done
+"$S/record-review-runtime.sh" --ctx "$CTX" --model gemini-4-carbon --effort high >/dev/null
+"$S/post-pass-comment.sh" --ctx "$CTX" --dry-run > "$TMP_ROOT/dry-run"
+grep -Fxq "model: gemini-4-carbon" "$CTX/pr-comment.md" || fail "gemini-4-carbon receipt model is wrong"
+grep -Fxq "effort: high" "$CTX/pr-comment.md" || fail "gemini-4-carbon receipt effort is wrong"
 pass "new models render their exact identity in PASS receipts"
 
 # A runtime recorded before the policy change must not bypass the current allowlist.

@@ -48,6 +48,35 @@ jq -e --arg head "$HEAD_SHA" \
     "$CTX/review-runtime.json" >/dev/null || fail "supported Claude runtime was not recorded"
 pass "supported Claude effort is recorded"
 
+"$RECORDER" --ctx "$CTX" --model gpt-6.2-astra --effort xhigh >/dev/null
+jq -e --arg head "$HEAD_SHA" \
+    '.model == "gpt-6.2-astra" and .effort == "xhigh" and .commit == $head' \
+    "$CTX/review-runtime.json" >/dev/null || fail "supported GPT-6.2 Astra runtime was not recorded"
+"$RECORDER" --ctx "$CTX" --model gpt-6.2-sol --effort ultra >/dev/null
+jq -e --arg head "$HEAD_SHA" \
+    '.model == "gpt-6.2-sol" and .effort == "ultra" and .commit == $head' \
+    "$CTX/review-runtime.json" >/dev/null || fail "supported GPT-6.2 Sol runtime was not recorded"
+pass "supported GPT-6.2 runtimes are recorded"
+
+"$RECORDER" --ctx "$CTX" --model gemini-4-carbon --effort high >/dev/null
+jq -e --arg head "$HEAD_SHA" \
+    '.model == "gemini-4-carbon" and .effort == "high" and .commit == $head' \
+    "$CTX/review-runtime.json" >/dev/null || fail "supported Gemini 4 Carbon runtime was not recorded"
+expect_failure "Gemini 4 Carbon xhigh effort is rejected" "not eligible for model 'gemini-4-carbon'" \
+    "$RECORDER" --ctx "$CTX" --model gemini-4-carbon --effort xhigh
+[ ! -e "$CTX/review-runtime.json" ] || fail "failed Gemini Carbon replacement left an old runtime record"
+
+"$RECORDER" --ctx "$CTX" --model gemini-4-neon --effort xhigh >/dev/null
+jq -e --arg head "$HEAD_SHA" \
+    '.model == "gemini-4-neon" and .effort == "xhigh" and .commit == $head' \
+    "$CTX/review-runtime.json" >/dev/null || fail "supported Gemini 4 Neon runtime was not recorded"
+expect_failure "Gemini 4 Neon high effort is rejected" "not eligible for model 'gemini-4-neon'" \
+    "$RECORDER" --ctx "$CTX" --model gemini-4-neon --effort high
+[ ! -e "$CTX/review-runtime.json" ] || fail "failed Gemini Neon replacement left an old runtime record"
+expect_failure "unsplit Antigravity CLI model ID is rejected" "is not eligible" \
+    "$RECORDER" --ctx "$CTX" --model gemini-4-neon-xhigh --effort xhigh
+pass "supported Gemini 4 runtimes and per-model effort gates are enforced"
+
 expect_failure "unlisted model is rejected" "is not eligible" \
     "$RECORDER" --ctx "$CTX" --model gpt-5.6-terra --effort xhigh
 
