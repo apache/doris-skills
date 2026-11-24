@@ -28,7 +28,7 @@ metadata:
 # Apache Doris Best Practices
 
 > Problem-first table design intelligence for Apache Doris.
-> 37 rules, 7 use case templates, 4 sizing guides.
+> 38 rules, 7 use case templates, 4 sizing guides.
 > All details in `references/` directory.
 
 ---
@@ -276,12 +276,13 @@ Sizing guides are in:
 - `schema-partition-auto-on-demand` — AUTO for sporadic data
 - `schema-partition-skip-for-small` — Skip partitioning under 1 GB
 
-### Bucket Strategy — CRITICAL (5 rules)
+### Bucket Strategy — CRITICAL (6 rules)
 - `schema-bucket-hash-vs-random` — HASH for pruning, RANDOM for DUP only
 - `schema-bucket-high-cardinality-key` — Choose high-cardinality column
 - `schema-bucket-composite-for-skew` — Composite key to fix data skew
 - `schema-bucket-target-size` — Target 1-10 GB per tablet
 - `schema-bucket-cloud-mandatory-hash` — Cloud MoW requires HASH
+- `schema-bucket-tablet-count-limits` — Tablet count vs FE memory (10M ≈ 100 GB) and BE (<20k); <128 buckets/partition
 
 ### Sort Key — CRITICAL (5 rules)
 - `schema-keys-selectivity-first` — High selectivity first
