@@ -17,7 +17,7 @@ version: 0.3.0
 2. Read `shared/references/01-common-commands.md` for diagnostic SQL and API commands.
 3. Read `shared/references/02-source-map.md` to map symptoms to Apache Doris source code locations.
 4. Open the target skill (`<domain>/SKILL.md`) and follow its cause table and decision tree.
-5. Check `shared/references/03-case-index.md` for matching production case patterns.
+5. Check `shared/references/03-cir-case-index.md` for matching production case patterns.
 
 ## Skill routing
 
@@ -40,7 +40,7 @@ version: 0.3.0
 |----------|---------|
 | `shared/references/01-common-commands.md` | Diagnostic SQL, HTTP API, and CLI commands |
 | `shared/references/02-source-map.md` | Symptom → Doris source code mapping (with version annotations) |
-| `shared/references/03-case-index.md` | 45 production case summaries across 8 domains |
+| `shared/references/03-cir-case-index.md` | 45 production case summaries across 8 domains |
 | `shared/references/04-metrics-guide.md` | Per-domain key metrics with thresholds |
 | `shared/references/05-config-quick-ref.md` | Per-domain key configuration parameters with tuning guidance |
 | `shared/guides/` | Cross-module cascade troubleshooting |
@@ -57,4 +57,4 @@ version: 0.3.0
 2. Logs / Metrics / Profile / `SHOW PROC` evidence first
 3. Stop the bleeding (throttle, kill, `reset_rpc_channel`) before root cause
 4. Verify hypotheses against Doris source code (`02-source-map.md`)
-5. Match known case patterns (`03-case-index.md`) to avoid rediscovery
+5. Match known case patterns (`03-cir-case-index.md`) to avoid rediscovery

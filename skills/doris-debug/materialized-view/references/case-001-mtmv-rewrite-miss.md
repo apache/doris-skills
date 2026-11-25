@@ -32,4 +32,4 @@ REFRESH MATERIALIZED VIEW mv COMPLETE;
 --    If MV filters on col_a but query filters on col_b, rewrite won't match
 ```
 
-Source: `fe/.../mtmv/MTMVService.java` rewrite rules, `fe/.../materializedview/MaterializedViewRewriter.java`.
+Source: `fe/fe-core/src/main/java/org/apache/doris/mtmv/MTMVService.java` rewrite rules, `fe/fe-core/src/main/java/org/apache/doris/nereids/rules/exploration/mv/` (`MaterializedViewRewriter.java` no longer exists).

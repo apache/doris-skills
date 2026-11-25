@@ -11,11 +11,11 @@ Ingest rate (version creation) > cumulative compaction throughput. This is NOT a
 ## Fix direction
 
 1. Check `be/log/be.INFO` for `"reach version limit"` lines
-2. `log-grep --pack versions` to confirm affected tablets
+2. `grep -hE "exceed limit|version count:" be/log/be.INFO*` to confirm affected tablets
 3. Raise `max_tablet_version_num` to **unblock writes immediately** (symptom relief)
 4. Then fix the root cause:
    - Reduce ingest frequency: increase group commit `interval_ms` / `data_bytes`
-   - Increase compaction thread pool: `max_cumulative_compaction_threads` / `compaction_task_num_per_disk`
+   - Increase compaction thread pool: `max_cumu_compaction_threads` / `compaction_task_num_per_disk`
    - Check disk IO: `iostat -x 1` — if disk util > 90%, compaction can't catch up regardless of thread count
 5. For time-series workloads, set `time_series_max_tablet_version_num` separately
 

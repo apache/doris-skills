@@ -23,7 +23,7 @@ category: node
 
 ```bash
 # Memory pressure signals
-./scripts/doris-debug log-grep be/log --pack memory
+grep -hE "memory tracker limit exceeded" be/log/be.WARNING* | tail -20
 dmesg -T | grep -i "killed process" | tail -5
 
 # FE JVM
@@ -55,11 +55,11 @@ grep "MemTrackerLimiter.*total" be/log/be.WARNING | tail -1
 ```properties
 # be.conf — defensive settings
 mem_limit = 70%              # Leave 30% for overhead
-max_segment_cache_size = 0   # Or cap explicitly
-enable_je_purge = true       # jemalloc dirty page cleanup
+segment_cache_capacity = -1   # bytes; or cap the segment cache explicitly
+enable_je_purge_dirty_pages = true   # jemalloc dirty page cleanup (master default)
 ```
 
-If `ProcessMemoryReachedCancel` didn't fire but OOM killer did: the gap between mem_limit and system RAM wasn't enough for jemalloc + brpc overhead.
+If the memory GC never cancelled the query but the OOM killer fired: the gap between mem_limit and system RAM wasn't enough for jemalloc + brpc overhead (`disable_memory_gc` = false keeps GC enabled).
 
 ## Cause B — FE JVM
 
@@ -82,5 +82,5 @@ Alive=true means the heartbeat RPC succeeds. This does NOT mean the brpc port (8
 
 - `be/src/runtime/memory/mem_tracker_limiter.cpp`
 - `be/src/service/doris_main.cpp` — jemalloc init, signal handler
-- `fe/.../master/HeartbeatHandler.java`
-- `be/src/common/config.cpp` — `mem_limit`, `enable_je_purge`, `max_segment_cache_size`
+- `fe/fe-core/src/main/java/org/apache/doris/system/HeartbeatMgr.java`
+- `be/src/common/config.cpp` — `mem_limit`, `enable_je_purge_dirty_pages`, `segment_cache_capacity`

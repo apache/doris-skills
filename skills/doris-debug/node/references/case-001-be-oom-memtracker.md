@@ -18,9 +18,9 @@ When `mem_limit = 80%` of system RAM and jemalloc fragments to 95%, the OOM kill
 
 1. Check actual RSS: `ps -o rss= -p $BE_PID` → convert to GB
 2. `dmesg -T | grep -i "killed process"` to confirm OOM kill
-3. `log-grep be/log --pack memory` to see last MemTracker snapshot before crash
+3. `grep -hE "memory tracker limit exceeded" be/log/be.WARNING* | tail -20` to see the last MemTracker snapshot before the crash
 4. Lower `mem_limit` to 60-70% of system RAM to leave room for overhead
-5. Check `max_segment_cache_size` / `chunk_reserved_bytes_limit` — these are outside MemTracker
-6. Consider `enable_je_purge = true` (be.conf) for jemalloc dirty page cleanup
+5. Check `segment_cache_capacity` / `segment_cache_memory_percentage` and `storage_page_cache_limit` — these are outside MemTracker (`max_segment_cache_size` and `chunk_reserved_bytes_limit` no longer exist on master)
+6. Consider `enable_je_purge_dirty_pages = true` (be.conf; master default) for jemalloc dirty page cleanup
 
 Source: `be/src/runtime/memory/mem_tracker_limiter.cpp`, `be/src/service/doris_main.cpp` jemalloc init.

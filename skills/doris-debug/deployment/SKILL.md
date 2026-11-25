@@ -94,5 +94,5 @@ Never remove `doris-meta/` on the **last healthy Master** FE.
 - `fe/conf/fe.conf` — port defaults
 - `be/src/common/config.cpp` — `priority_networks`
 - `be/src/service/doris_main.cpp` — BE startup
-- `fe/.../master/Env.java` — FE bootstrap
+- `fe/fe-core/src/main/java/org/apache/doris/catalog/Env.java` — FE bootstrap
 - `fe/.../journal/bdbje/BDBJEJournal.java`

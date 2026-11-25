@@ -65,14 +65,16 @@ EXPLAIN VERBOSE SELECT ...;  -- check fe/log/fe.audit.log for MV match details
 ```sql
 -- Cancel stuck build
 CANCEL ALTER TABLE MATERIALIZED VIEW FROM db ON table;
+```
 
--- Check BE compaction queue (MV build competes with compaction)
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep compaction
+```bash
+# MV build competes with compaction: check compaction score and throughput
+curl -s "http://$BE:8040/metrics" | grep -E "compaction"
 ```
 
 ## Source
 
 - `fe/.../mtmv/MTMVService.java` — MTMV lifecycle
 - `fe/.../alter/MaterializedViewHandler.java` — sync MV alter
-- `fe/.../materializedview/MaterializedViewRewriter.java` — rewrite logic
+- `fe/fe-core/src/main/java/org/apache/doris/nereids/rules/exploration/mv/` — rewrite rules (directory; `MaterializedViewRewriter.java` no longer exists)
 - `SessionVariable.java` — `enable_materialized_view_rewrite`, `materialized_view_rewrite_enable_contain_external_table`

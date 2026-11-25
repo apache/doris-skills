@@ -21,7 +21,7 @@ Write WAL → RPC returns → background group commit → **delete_wal** on succ
 |--------|---------|------|
 | `group_commit_insert_threads` | 10 | commit worker pool |
 | `group_commit_relay_wal_threads` | 10 | WAL replay |
-| `group_commit_wal_path` | under storage_root | WAL disks |
+| `group_commit_wal_path` | <storage_root>/wal | WAL disks |
 | `group_commit_wal_max_disk_limit` | 10% | WAL quota |
 | table `group_commit_data_bytes` | often 64MB | size flush |
 | table `group_commit_interval_ms` | often 10000 | time flush |
@@ -29,12 +29,12 @@ Write WAL → RPC returns → background group commit → **delete_wal** on succ
 ## High MB/s guidance
 
 1. Split load across BEs (WAL is local to coordinator BE).
-2. `wal-du` on each BE storage path.
+2. Measure WAL usage on each BE (see `shared/references/01-common-commands.md`, WAL disk usage).
 3. Prefer dedicated NVMe for `group_commit_wal_path`.
 4. A/B `group_commit_data_bytes` (128MB vs 512MB) — size threshold dominates when ingest ≫ interval.
 5. `sync_mode` or client throttle for backpressure.
 
 ```bash
-./scripts/doris-debug wal-du /path/to/be/storage
-./scripts/doris-debug log-grep be/log --pack group_commit
+grep -h "wal_dir:" be/log/be.INFO* | tail -10 && du -sh "$BE_STORAGE_ROOT"/wal/*
+grep -hE "Too many group commit async WALs|group commit" be/log/be.INFO* | tail -50
 ```

@@ -108,6 +108,6 @@ Factor 1 dominates: scanners have stopped, but fragments wait for runtime filter
 2. Sort by elapsed to find top query_ids → confirm the common stuck point
 3. be/log `MemoryGC` scan results (check whether there is a cancellable large task)
 4. `jeprof --inuse_space` to confirm allocation hotspots
-5. `be-metrics --grep cache` to break down per-cache usage
+5. `curl -s "http://$BE:8040/metrics" | grep -E "cache"` to break down per-cache usage
 6. FE log statistics for query/ingestion volume in the same window
 7. Capture `top -H` / `pstack` on the abnormal BE to preserve the scene

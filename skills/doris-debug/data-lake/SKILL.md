@@ -13,7 +13,7 @@ category: data-lake
 
 | ID | Cause | Evidence | Source anchor |
 |----|-------|----------|---------------|
-| A | Metadata stale | Query returns old data / missing partitions after upstream write | `HMSClient.java`, `CachedHMSClient.java` |
+| A | Metadata stale | Query returns old data / missing partitions after upstream write | `HmsClient.java`, `CachingHmsClient.java` |
 | B | S3/HDFS connectivity | `Access Denied`, `Timeout`, `NoSuchBucket` | `S3FileSystem.java`, `HdfsResource.java` |
 | C | External MV rewrite miss | EXPLAIN shows no MATERIALIZED_REWRITE | `MTMVService.java` rewrite rules |
 | D | Schema mismatch | Parquet/ORC schema ≠ Hive Metastore schema | `ParquetReader.cpp`, schema merge |
@@ -40,7 +40,7 @@ ANALYZE TABLE hive_catalog.db_name.tbl_name;
 
 ```bash
 # BE logs for S3/HDFS errors
-./scripts/doris-debug log-grep be/log --query-id "$QID"
+grep -rh "$QID" be/log/be.INFO*
 grep -r "403\|Access Denied\|Timeout\|NoSuchBucket\|Token.*expired" be/log/
 
 # Check BE file descriptor limit
@@ -56,7 +56,7 @@ Hive Metastore metadata is cached; `REFRESH CATALOG` invalidates the cache. For 
 REFRESH TABLE catalog.db.tbl PARTITION (dt='2026-07-15');
 ```
 
-If refresh is slow, check HMSClient cache settings (`fe.conf`):
+If refresh is slow, check the HMS client cache settings in `HmsClientConfig.java` and `fe.conf`:
 ```properties
 hive_metastore_client_timeout_second = 10
 ```
@@ -92,9 +92,9 @@ For long-running queries against external tables, ensure credential TTL > query 
 
 ## Source
 
-- `fe/.../datasource/hive/HMSExternalCatalog.java`
-- `fe/.../datasource/hive/HMSClient.java`
-- `be/src/io/fs/s3/S3FileSystem.cpp` — S3 connector
-- `be/src/io/fs/hdfs/HdfsFileSystem.cpp` — HDFS connector
-- `be/src/vec/exec/format/parquet/vparquet_reader.cpp` — parquet reader
+- `fe/fe-connector/fe-connector-hive/src/main/java/org/apache/doris/connector/hive/HiveConnectorMetadata.java`
+- `fe/fe-connector/fe-connector-hms/src/main/java/org/apache/doris/connector/hms/HmsClient.java`
+- `be/src/io/fs/obj_storage_file_system.cpp` — object storage (S3/GCS/OSS) connector
+- `be/src/io/fs/hdfs_file_system.cpp` — HDFS connector
+- `be/src/format_v2/parquet/parquet_reader.cpp` — parquet reader
 - `fe/.../mtmv/MTMVService.java` — external MV rewrite

@@ -27,7 +27,7 @@
 - **Doris version**: 4.1.3
 - **Symptom**: Total query time 10min8s, `Plan Time=10min8sec`, while actual BE execution is only 214ms over 1MB of data
 - **Root cause**: In the Nereids `Finalize Scan Node → Create Scan Range` phase, each `getManifestFiles` call triggers `UpdateRunningStatus`, which issues an `msClient.updateInstance` RPC; 64 files × 63 partitions called repeatedly at ~200ms each → 10min+
-- **Fix**: Short term: increase `iceberg_manifest_cache_refresh_interval_s`; long term: improve scan range creation to reduce duplicate RPCs
+- **Fix**: Short term: increase `iceberg_manifest_cache_refresh_interval_s` on that release (the config no longer exists on master); long term: improve scan range creation to reduce duplicate RPCs
 - **Evidence**: Profile `Create Scan Range Time=10min1sec`, `Get Splits Time=6sec`, `Is Nereids=Yes`
 - **Key diagnostic actions**: Profile → Plan Time share → break down Nereids Translate / Finalize Scan Node / Create Scan Range
 
@@ -95,7 +95,7 @@
 - **Doris version**: 4.0.8
 - **Symptom**: Stream Load returns 307, but the BE IP in the Location header is unreachable from the client
 - **Root cause**: FE redirects to a BE internal IP while the client is on an external network
-- **Fix**: `enable_redirect_strict_check = false` + ensure the BE IP is reachable from the client
+- **Fix**: `enable_redirect_strict_check = false` on that release (the config no longer exists on master; verify against your branch) + ensure the BE IP is reachable from the client
 - **Key diagnostic actions**: `curl -v` to inspect the 307 Location → verify IP reachability → `SHOW BACKENDS`
 
 ### Case I2: INSERT INTO Jobs Not Cleaned Up → FE OOM
@@ -112,9 +112,9 @@
 - **Severity**: High
 - **Doris version**: 26.0.3
 - **Symptom**: Broker Load from S3 takes far longer than expected; list operations take longer than the download itself
-- **Root cause**: Too many files under the S3 prefix + `s3_max_connections` too small
-- **Fix**: Increase `s3_max_connections`; merge small files before loading
-- **Key diagnostic actions**: S3 list latency → BE log s3 → `s3_max_connections`
+- **Root cause**: Too many files under the S3 prefix + `s3_max_connections` too small (removed on master: use `min_s3_file_system_thread_num` / `max_s3_file_system_thread_num`)
+- **Fix**: Increase `s3_max_connections` on that release; merge small files before loading
+- **Key diagnostic actions**: S3 list latency → BE log s3 → the S3 filesystem thread config on your branch
 
 ### Case I4: Load RPC Timed Out (Heavy Work Pool Saturated)
 
@@ -180,8 +180,8 @@
 - **Doris version**: cloud 4.0+
 - **Symptom**: Cumu score keeps rising while base score stays normal
 - **Root cause**: High-frequency writes produce many cumulative points and cumu compaction throughput is insufficient
-- **Fix**: Increase `max_cumulative_compaction_threads`, `compaction_task_num_per_disk`
-- **Key diagnostic actions**: `be-metrics --grep compaction` → `iostat -x 1` disk IO → compare base vs cumu score
+- **Fix**: Increase `max_cumu_compaction_threads` (named `max_cumulative_compaction_threads` on older releases) and `compaction_task_num_per_disk`
+- **Key diagnostic actions**: `curl -s "http://$BE:8040/metrics" | grep -E "compaction"` → `iostat -x 1` disk IO → compare base vs cumu score
 
 ### Case C5: High Base Score but No Matching Tablet Found
 
@@ -210,8 +210,8 @@
 - **Doris version**: 4.1.2
 - **Symptom**: BE RSS grows continuously and is not released even without queries; file_cache usage keeps growing
 - **Root cause**: file_cache LRU eviction fails under high hit rates
-- **Fix**: Fix LRU eviction + set `file_cache_query_limit`
-- **Key diagnostic actions**: `be-metrics --grep file_cache` → RSS vs MemTracker → `jeprof`
+- **Fix**: Fix LRU eviction + set `enable_file_cache_query_limit` (the integer `file_cache_query_limit` no longer exists on master)
+- **Key diagnostic actions**: `curl -s "http://$BE:8040/metrics" | grep -E "file_cache"` → RSS vs MemTracker → `jeprof`
 
 ### Case N3: BE Keeps Coredumping
 
@@ -244,8 +244,8 @@
 - **Doris version**: 2.1.7
 - **Symptom**: Freshly started BE with no queries has RSS 200GB+
 - **Root cause**: `mem_limit=80%` but `storage_page_cache_limit` etc. are not explicitly set, so a large page cache is allocated by default
-- **Fix**: Explicitly set `storage_page_cache_limit` + `max_segment_cache_size`
-- **Key diagnostic actions**: RSS vs mem_limit → `be-metrics --grep cache` → cache configs in be.conf
+- **Fix**: Explicitly set `storage_page_cache_limit` (master default 20%) + `segment_cache_capacity` / `segment_cache_memory_percentage` (`max_segment_cache_size` no longer exists on master)
+- **Key diagnostic actions**: RSS vs mem_limit → `curl -s "http://$BE:8040/metrics" | grep -E "cache"` → cache configs in be.conf
 
 ### Case N7: Memory Leak in Stress Test Scenario
 
@@ -358,7 +358,7 @@
 - **Doris version**: 4.0+
 - **Symptom**: Queries still OOM after `enable_spill=true`
 - **Root cause**: Spill only works for agg/join operators; the relationship between the spill trigger threshold and mem_limit is unclear
-- **Key diagnostic actions**: Profile `SpillDataSize` → `be-metrics --grep spill` → confirm the triggering operator
+- **Key diagnostic actions**: Profile `SpillDataSize` → `curl -s "http://$BE:8040/metrics" | grep -E "spill"` → confirm the triggering operator
 
 ### Case R2: MEM_LIMIT_EXCEEDED Despite Plenty of System Memory (cgroup)
 
@@ -367,7 +367,7 @@
 - **Symptom**: `mem_limit=80%` but loads fail with MEM_LIMIT_EXCEEDED while `free` shows plenty of available memory
 - **Root cause**: `/proc/meminfo MemAvailable` inside a cgroup container includes reclaimable page cache, so the value is inaccurate
 - **Fix**: Use cgroup `memory.limit_in_bytes - memory.usage_in_bytes` instead
-- **Key diagnostic actions**: `free -h` vs cgroup memory.limit_in_bytes → be/log MemTrackerLimiter → `be-metrics --grep memory`
+- **Key diagnostic actions**: `free -h` vs cgroup memory.limit_in_bytes → be/log MemTrackerLimiter → `curl -s "http://$BE:8040/metrics" | grep -E "memory"`
 
 ### Case R3: Workload Policy ConcurrentModificationException
 
@@ -405,7 +405,7 @@
 - **Symptom**: After running warmup, queries still read everything from S3; file_cache is not hit
 - **Root cause**: The warmup did not cover all required segment files or delete bitmaps, or the cache TTL is too short
 - **Fix**: Confirm the warmup coverage + extend the cache TTL
-- **Key diagnostic actions**: `be-metrics --grep file_cache` hit ratio → compare S3 GET volume → warmup coverage
+- **Key diagnostic actions**: `curl -s "http://$BE:8040/metrics" | grep -E "file_cache"` hit ratio → compare S3 GET volume → warmup coverage
 
 ### Case CL2: BE Resources Not Released with No Queries Running
 
@@ -414,7 +414,7 @@
 - **Symptom**: BE RSS stays at %mem_limit while `SHOW PROC '/current_queries'` is empty
 - **Root cause**: Fragments of historical queries finished but their brpc channels were not released + file_cache not evicted
 - **Fix**: `reset_rpc_channel` + shorten the file_cache TTL
-- **Key diagnostic actions**: `SHOW PROC '/current_queries'` → `be-metrics --grep fragment` → `be-metrics --grep file_cache` → RSS vs MemTracker
+- **Key diagnostic actions**: `SHOW PROC '/current_queries'` → `curl -s "http://$BE:8040/metrics" | grep -E "fragment"` → `curl -s "http://$BE:8040/metrics" | grep -E "file_cache"` → RSS vs MemTracker
 
 ### Case CL3: Query Hangs + Slow Plan Selected (Plan Race)
 
@@ -438,7 +438,7 @@
 - **Doris version**: 4.0.4
 - **Symptom**: In cloud mode the BE process exits and restarts without a core dump
 - **Root cause**: Suspected brpc health check timeout triggering a watchdog kill
-- **Key diagnostic actions**: be.out exit log → dmesg OOM killer → `be-metrics --grep brpc`
+- **Key diagnostic actions**: be.out exit log → dmesg OOM killer → `curl -s "http://$BE:8040/metrics" | grep -E "brpc"`
 
 ---
 

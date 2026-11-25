@@ -38,7 +38,7 @@ SHOW WORKLOAD POLICY\G
 cat /sys/fs/cgroup/cpu/doris/<wg_id>/cpu.shares
 cat /sys/fs/cgroup/memory/doris/<wg_id>/memory.limit_in_bytes
 
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep "workload_group"
+curl -s "http://$BE:8040/metrics" | grep -E "workload_group"
 ```
 
 ## Cause A — Queue starvation
@@ -55,7 +55,7 @@ ALTER WORKLOAD GROUP etl_wg SET (
 );
 ```
 
-Check `be/src/pipeline/task_scheduler.cpp` — the pipeline scheduler respects cgroup shares; if a high-share WG starves a low-share one, the low-share WG's queue backs up.
+Check `be/src/exec/pipeline/task_scheduler.cpp` — the pipeline scheduler respects cgroup shares; if a high-share WG starves a low-share one, the low-share WG's queue backs up.
 
 ## Cause B — CPU oversubscription
 
@@ -105,7 +105,7 @@ Without cgroup configured, `cpu_share` is a cooperative hint, not a hard guarant
 ## Source
 
 - `be/src/common/config.cpp` — `enable_workload_group`, cgroup paths
-- `be/src/pipeline/task_scheduler.cpp` — pipeline scheduling
+- `be/src/exec/pipeline/task_scheduler.cpp` — pipeline scheduling
 - `fe/.../workloadgroup/WorkloadGroupMgr.java` — WG lifecycle
 - `fe/.../resource/Tag.java` — resource tags
 - `be/src/util/cgroup_util.cpp` — cgroup v1/v2 adapter

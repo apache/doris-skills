@@ -79,6 +79,6 @@ Under high-frequency access, the FileCache LRU recorder queue produces faster th
 ## Key diagnostic actions
 
 1. `jeprof --text` heap dump → confirm the hotspot is `LRUQueueRecorder`
-2. `be-metrics --grep file_cache` → watch `file_cache_need_update_lru_blocks_length`
+2. `curl -s "http://$BE:8040/metrics" | grep -E "file_cache"` → watch `file_cache_need_update_lru_blocks_length`
 3. If RSS stays high after ruling out DataPageCache/SegmentCache/QueryCache → suspect FileCache LRU
 4. Check the current value of `file_cache_background_lru_log_replay_interval_ms`

@@ -10,4 +10,4 @@ group_commit:async_mode high MB/s
 
 Skill: `import` → `compaction`  
 Code: `group_commit_mgr.cpp`, `rowset_builder.cpp`  
-Tool: `./scripts/doris-debug wal-du <storage_root>`
+Tool: `grep -h "wal_dir:" be/log/be.INFO* | tail` then `du -sh <wal_dir>/*` (see `shared/references/01-common-commands.md`)
