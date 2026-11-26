@@ -32,14 +32,14 @@ Defaults (`config.cpp`): `max_tablet_version_num=2000`, `time_series_max_tablet_
 
 ## Actions
 
-1. Confirm with `./scripts/doris-debug log-grep be/log --pack versions`
-2. Check compaction throughput: `./scripts/doris-debug be-metrics --be http://$BE:8040 --grep compaction`
+1. Confirm with `grep -hE "exceed limit|version count:" be/log/be.INFO*`
+2. Check compaction throughput: `curl -s "http://$BE:8040/metrics" | grep -E "compaction"`
 3. Check disk IO: `iostat -x 1`
 4. Slow ingest / enlarge group commit batches
 5. Raising `max_tablet_version_num` is a temporary valve — fix ingest vs compaction balance
 
 ```bash
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep compaction
+curl -s "http://$BE:8040/metrics" | grep -E "compaction"
 ```
 
 ## Compaction knobs
@@ -48,13 +48,13 @@ Defaults (`config.cpp`): `max_tablet_version_num=2000`, `time_series_max_tablet_
 # be.conf
 max_tablet_version_num = 2000               # hard cap, raise only as stopgap
 time_series_max_tablet_version_num = 20000   # separate cap for time-series tables
-max_cumulative_compaction_threads = -1       # -1 = auto based on CPU cores
+max_cumu_compaction_threads = -1       # -1 = auto based on CPU cores
 compaction_task_num_per_disk = 4             # per-disk concurrent compaction tasks
-compaction_tablet_size_threshold = 107374182400  # 100GB — above this, skip base compaction
+# compaction_tablet_size_threshold no longer exists on master; it has no replacement knob
 ```
 
 ## Source
 
 - `be/src/storage/rowset_builder.cpp` — `-235` error
 - `be/src/common/config.cpp` — all compaction config defaults
-- `be/src/olap/cumulative_compaction_policy.cpp` — score calculation
+- `be/src/storage/compaction/cumulative_compaction_policy.cpp` — score calculation

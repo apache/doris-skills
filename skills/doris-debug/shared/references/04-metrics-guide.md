@@ -43,7 +43,7 @@ curl -s "http://$FE:8030/api/query_profile?query_id=$QID"
 | `CloneTaskQueue` | `SHOW PROC '/tasks'` | Clone task backlog | > 50 |
 
 ```bash
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep compaction --warn
+curl -s "http://$BE:8040/metrics" | grep -E "compaction"
 ```
 
 **Distinguishing Base vs Cumulative**:
@@ -63,7 +63,7 @@ curl -s "http://$FE:8030/api/query_profile?query_id=$QID"
 | `file_cache_need_update_lru_blocks_length` | BE bvar | FileCache LRU queue length | > 100000 → possible backlog |
 
 ```bash
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep "memory|jemalloc|cache" --warn
+curl -s "http://$BE:8040/metrics" | grep -E "memory|jemalloc|cache"
 ```
 
 **RSS vs MemTracker Gap**:
@@ -78,13 +78,14 @@ curl -s "http://$FE:8030/api/query_profile?query_id=$QID"
 |------|------|------|----------|
 | `LoadTime` | `SHOW LOAD` | Total load time | > 10min (except large tables) |
 | `publish_timeout` | be/log | Version publish timeout | Any occurrence → compaction or tablet count problem |
-| `wal_size` | `wal-du` command | WAL disk usage | > 50% of disk → consumption cannot keep up |
+| `wal_size` | `du -sh <wal dir>` (see `01-common-commands.md`) | WAL disk usage | > 50% of disk → consumption cannot keep up |
 | `group_commit_insert_threads` | be.conf | Commit worker pool size | Busy rate > 80% |
 | `heavy_work_pool_active` | BE bvar | Active threads in the heavy pool | = max → possible queuing |
 
 ```bash
-./scripts/doris-debug wal-du /path/to/be/storage
-./scripts/doris-debug log-grep be/log --pack group_commit
+grep -h "wal_dir:" be/log/be.INFO* | tail -10
+du -sh "$BE_STORAGE_ROOT"/wal/*
+grep -hE "Too many group commit async WALs|group commit" be/log/be.INFO* | tail -50
 ```
 
 ## Cloud Storage-Compute Separation Metrics
@@ -98,7 +99,7 @@ curl -s "http://$FE:8030/api/query_profile?query_id=$QID"
 | `file_cache_size` | BE /metrics | Current file cache usage | Near total_size configured in file_cache_path → consider expanding |
 
 ```bash
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep "file_cache|s3"
+curl -s "http://$BE:8040/metrics" | grep -E "file_cache|s3"
 ```
 
 ## Resource Isolation Metrics

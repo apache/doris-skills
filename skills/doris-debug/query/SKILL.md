@@ -27,9 +27,11 @@ SET enable_profile = true;
 ```
 
 ```bash
-./scripts/doris-debug log-grep fe/log be/log --query-id "$QID" --pack planner
-./scripts/doris-debug log-grep be/log --query-id "$QID" --pack exchange
-./scripts/doris-debug audit-topk fe/log/fe.audit.log -k 20 --min-ms 5000
+grep -h "$QID" fe/log/fe.log              # planner-side lines, when the FE log carries the id
+grep -rh "$QID" be/log/be.INFO*               # BE lines for the same query
+grep -hE "failed to send brpc when exchange" be/log/be.INFO* | tail -20
+# Top-N slow queries: SQL on __internal_schema.audit_log
+# (see shared/references/01-common-commands.md)
 ```
 
 Planner mitigation (session only): `SET disable_join_reorder=true;` for fat ETL joins; fix stats with `ANALYZE`.

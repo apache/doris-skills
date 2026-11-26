@@ -26,8 +26,8 @@ Or inspect `fe.conf` for `cloud_unique_id` or `meta_service_endpoint`.
 | ID | Cause | Evidence | Source anchor |
 |----|-------|----------|---------------|
 | A | Meta-service latency | High P99 on `SHOW PROC` / DDL; meta-service RPC spikes | `MetaServiceClient.java` |
-| B | Cache miss storm | `local_cache_hit_ratio` near 0; high S3 GET rate post-ingest | `FileCache.cpp` |
-| C | Object store throughput saturation | S3 throttle errors (503 SlowDown); `Throughput limit exceeded` | `S3FileSystem.cpp` |
+| B | Cache miss storm | `local_cache_hit_ratio` near 0; high S3 GET rate post-ingest | `block_file_cache.cpp` |
+| C | Object store throughput saturation | S3 throttle errors (503 SlowDown); `Throughput limit exceeded` | `obj_storage_file_system.cpp` |
 | D | Compute group imbalance | One compute group idle, another overloaded | `ComputeGroupMgr.java` |
 | E | Wrong config for cloud mode | BE OOM from shared-nothing compaction knobs applied in cloud | cloud vs local config divergence |
 
@@ -43,10 +43,10 @@ SELECT * FROM information_schema.file_cache_stats;
 
 ```bash
 # BE cache metrics
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep "file_cache|local_cache"
+curl -s "http://$BE:8040/metrics" | grep -E "file_cache|local_cache"
 
 # Object store errors in BE log
-./scripts/doris-debug log-grep be/log --query-id "$QID"
+grep -rh "$QID" be/log/be.INFO*
 grep -r "SlowDown\|503\|Throughput.*exceed" be/log/
 ```
 
@@ -75,7 +75,7 @@ Tune cache capacity:
 ```properties
 # be.conf — file cache in cloud mode
 file_cache_path = [{"path":"/nvme0/file_cache","total_size":536870912000,"query_limit":107374182400}]
-file_cache_type = whole_file_cache  # or sub_file_cache for column-level
+file_cache_each_block_size = 1048576   # block file cache (whole_file_cache no longer exists on master)
 ```
 
 ## Cause C — Object store throttling
@@ -84,11 +84,13 @@ S3 has per-prefix request rate limits (~3500 PUT/GET per second per prefix). For
 
 ```properties
 # be.conf
-s3_max_connections = 256          # increase parallel connections
-s3_request_timeout_ms = 30000     # increase timeout
+# S3 connection settings are storage-vault properties, not BE configs. Defaults:
+#   s3.connection.maximum = 50
+#   s3.connection.request.timeout = 3000 (ms)
+#   s3.connection.timeout = 1000 (ms)
 ```
 
-Consider `sub_file_cache` for cold tables with large Parquet files — reduces S3 list/get calls.
+For cold tables with large Parquet files, the block file cache already reads at block granularity (`file_cache_each_block_size`, 1 MB default); cap a single query's share with `enable_file_cache_query_limit` or the `query_limit` key of `file_cache_path`.
 
 ## Key differences from shared-nothing
 
@@ -102,8 +104,7 @@ Consider `sub_file_cache` for cold tables with large Parquet files — reduces S
 
 ## Source
 
-- `fe/.../cloud/ComputeGroupMgr.java`
-- `fe/.../cloud/MetaServiceClient.java`
-- `be/src/io/fs/s3/S3FileSystem.cpp`
-- `be/src/io/cache/whole_file_cache.cpp`
-- `be/src/io/cache/sub_file_cache.cpp`
+- `fe/fe-core/src/main/java/org/apache/doris/resource/computegroup/ComputeGroupMgr.java`
+- `fe/fe-core/src/main/java/org/apache/doris/cloud/rpc/MetaServiceClient.java`
+- `be/src/io/fs/obj_storage_file_system.cpp` (clients: `be/src/io/object_storage/`)
+- `be/src/io/cache/block_file_cache.cpp`

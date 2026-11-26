@@ -21,11 +21,11 @@ SHOW PROC '/tasks';
 
 | ID | Cause | Evidence | Source anchor |
 |----|-------|----------|---------------|
-| A | Replica missing / unhealthy | `SHOW PROC '/cluster_health/tablet_health'` Health≠TOTAL | `TabletHealth.java` |
+| A | Replica missing / unhealthy | `SHOW PROC '/cluster_health/tablet_health'` Health≠TOTAL | `TabletHealthProcDir.java` |
 | B | Version skew | tablet version lag > 3 behind quorum | `TabletInvertedIndex.cpp` |
 | C | Clone backlog | `SHOW PROC '/tasks'` CLONE queue depth > 50 | `CloneTask.cpp`, BE `clone_worker_count` |
 | D | Disk skew | `SHOW PROC '/statistic'` one disk > 85% while others < 50% | `DiskBalancer` / balance config |
-| E | Single tablet too large | tablet size > `compaction_tablet_size_threshold` | `config.cpp` + compaction |
+| E | Single tablet too large | tablet size far above the 1-10 GB target (see `doris-best-practices` `schema-bucket-target-size`) | `SHOW TABLETS` size column + bucket design |
 
 ## 10 min triage
 
@@ -42,8 +42,8 @@ SHOW PROC '/tasks';
 
 ```bash
 # BE-side tablet count & version lag
-./scripts/doris-debug be-metrics --be http://$BE:8040 --grep "tablet|version|clone"
-./scripts/doris-debug log-grep be/log --pack versions
+curl -s "http://$BE:8040/metrics" | grep -E "tablet|version|clone"
+grep -hE "exceed limit|version count:" be/log/be.INFO* | tail -20
 
 # Check specific tablet distribution
 curl -s "http://$FE:8030/api/tablets_distribution?db=db_name&table=tbl_name"
@@ -93,8 +93,8 @@ Manual rebalance: `ADMIN SET FRONTEND CONFIG ("disable_balance" = "true");` then
 
 ## Source
 
-- `fe/.../master/TabletHealth.java` — cluster_health proc
+- `fe/fe-core/src/main/java/org/apache/doris/common/proc/TabletHealthProcDir.java` — cluster_health proc
 - `fe/.../clone/TabletSchedCtx.java`
 - `be/src/agent/task_worker_pool.cpp` — clone worker pool
 - `be/src/common/config.cpp` — `clone_worker_count`, `storage_root_path`
-- `be/src/olap/tablet_manager.cpp` — tablet version tracking
+- `be/src/storage/tablet/tablet_manager.cpp` — tablet version tracking

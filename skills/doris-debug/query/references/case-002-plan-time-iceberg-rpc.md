@@ -88,7 +88,7 @@ In Nereids' handling of Iceberg external tables during the Create Scan Range pha
 
 ## Fix
 
-- **Short term**: Increase `iceberg_manifest_cache_refresh_interval_s` to reduce the frequency of manifest re-fetching
+- **Short term**: Increase `iceberg_manifest_cache_refresh_interval_s` on that release to reduce the frequency of manifest re-fetching (the config no longer exists on master)
 - **Long term**: Improve the Create Scan Range phase to reduce duplicate RPC calls to the meta-service (batch the fetches, or remove the unnecessary `updateInstance` calls)
 
 ## Key diagnostic actions
